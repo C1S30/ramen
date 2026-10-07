@@ -48,7 +48,7 @@ class PlaylistFormatView extends StatelessWidget {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        'PLAYLIST',
+                        resource.isSearchResult ? 'SEARCH RESULTS' : 'PLAYLIST',
                         style: AppStyles.monoAccent.copyWith(fontSize: 10),
                       ),
                     ),
@@ -99,7 +99,7 @@ class PlaylistFormatView extends StatelessWidget {
             ),
           ),
 
-          // Playlist Item Entries Checklist
+          // Playlist / Search Item Entries Checklist
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -109,62 +109,86 @@ class PlaylistFormatView extends StatelessWidget {
               final item = entries[index];
               final isChecked = controller.selectedPlaylistEntries.contains(item.id);
 
-              return CheckboxListTile(
-                value: isChecked,
-                activeColor: AppColors.accent,
-                checkColor: AppColors.textPrimary,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                title: Text(
-                  item.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppStyles.bodyLarge.copyWith(fontSize: 14),
-                ),
-                subtitle: Padding(
-                  padding: const EdgeInsets.only(top: 4),
+              return InkWell(
+                onTap: () => controller.togglePlaylistItem(item.id),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   child: Row(
                     children: [
-                      if (item.durationSeconds != null)
-                        Text(
-                          Formatters.formatDuration(item.durationSeconds),
-                          style: AppStyles.monoSmall,
+                      Checkbox(
+                        value: isChecked,
+                        activeColor: AppColors.accent,
+                        checkColor: AppColors.textPrimary,
+                        onChanged: (_) => controller.togglePlaylistItem(item.id),
+                      ),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: item.thumbnail != null
+                            ? Image.network(
+                                item.thumbnail!,
+                                width: 64,
+                                height: 40,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  width: 64,
+                                  height: 40,
+                                  color: AppColors.surfaceHighlight,
+                                  child: const Icon(Icons.music_video, size: 18),
+                                ),
+                              )
+                            : Container(
+                                width: 64,
+                                height: 40,
+                                color: AppColors.surfaceHighlight,
+                                child: const Icon(Icons.music_video, size: 18),
+                              ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppStyles.bodyLarge.copyWith(fontSize: 14),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                if (item.durationSeconds != null)
+                                  Text(
+                                    Formatters.formatDuration(item.durationSeconds),
+                                    style: AppStyles.monoSmall,
+                                  ),
+                                if (item.uploader != null) ...[
+                                  const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
+                                  Expanded(
+                                    child: Text(
+                                      item.uploader!,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppStyles.caption,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
                         ),
-                      if (item.uploader != null) ...[
-                        const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
-                        Expanded(
-                          child: Text(
-                            item.uploader!,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppStyles.caption,
-                          ),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.tune_rounded,
+                          size: 18,
+                          color: AppColors.accentBright,
                         ),
-                      ],
+                        tooltip: 'Inspect formats',
+                        onPressed: () => controller.inspectUrl(item.url),
+                      ),
                     ],
                   ),
                 ),
-                secondary: ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: item.thumbnail != null
-                      ? Image.network(
-                          item.thumbnail!,
-                          width: 64,
-                          height: 40,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            width: 64,
-                            height: 40,
-                            color: AppColors.surfaceHighlight,
-                            child: const Icon(Icons.music_video, size: 18),
-                          ),
-                        )
-                      : Container(
-                          width: 64,
-                          height: 40,
-                          color: AppColors.surfaceHighlight,
-                          child: const Icon(Icons.music_video, size: 18),
-                        ),
-                ),
-                onChanged: (_) => controller.togglePlaylistItem(item.id),
               );
             },
           ),

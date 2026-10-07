@@ -3,6 +3,7 @@ enum UrlType {
   youtubePlaylist,
   youtubeShorts,
   genericMedia,
+  searchQuery,
   invalid,
 }
 
@@ -29,17 +30,33 @@ class UrlValidator {
     caseSensitive: false,
   );
 
-  /// Analyzes the string and determines the media type
+  static final RegExp _searchPrefixRegex = RegExp(
+    r'^[a-z]+search\d*:',
+    caseSensitive: false,
+  );
+
+  /// Analyzes the string and determines the media or search query type
   static UrlType categorize(String input) {
     final trimmed = input.trim();
     if (trimmed.isEmpty) return UrlType.invalid;
 
+    // Check for explicit yt-dlp search prefix like ytsearch: or ytsearch10:
+    if (_searchPrefixRegex.hasMatch(trimmed)) {
+      return UrlType.searchQuery;
+    }
+
     if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
-      // Allow user pasting without schema
+      // Allow pasting URLs without schema (e.g. youtube.com/watch?v=... or domain.com/video)
       if (_youtubeUrlRegex.hasMatch('https://$trimmed')) {
         return _categorizeYoutube('https://$trimmed');
       }
-      return UrlType.invalid;
+      if (trimmed.contains('.') &&
+          !trimmed.contains(' ') &&
+          _generalHttpRegex.hasMatch('https://$trimmed')) {
+        return UrlType.genericMedia;
+      }
+      // If not a URL structure, treat as search query
+      return UrlType.searchQuery;
     }
 
     if (_youtubeUrlRegex.hasMatch(trimmed)) {
@@ -50,7 +67,7 @@ class UrlValidator {
       return UrlType.genericMedia;
     }
 
-    return UrlType.invalid;
+    return UrlType.searchQuery;
   }
 
   static UrlType _categorizeYoutube(String url) {
@@ -74,8 +91,16 @@ class UrlValidator {
     return categorize(url) == UrlType.youtubePlaylist;
   }
 
+  static bool isSearchQuery(String input) {
+    return categorize(input) == UrlType.searchQuery;
+  }
+
   static bool isValidMediaUrl(String url) {
     final type = categorize(url);
-    return type != UrlType.invalid;
+    return type != UrlType.invalid && type != UrlType.searchQuery;
+  }
+
+  static bool isValidInput(String input) {
+    return categorize(input) != UrlType.invalid;
   }
 }

@@ -8,7 +8,7 @@ import '../../controllers/search_format_controller.dart';
 import '../../controllers/template_controller.dart';
 import 'widgets/format_selector_sheet.dart';
 import 'widgets/playlist_format_view.dart';
-import 'widgets/quick_template_bar.dart';
+// import 'widgets/quick_template_bar.dart';
 import 'widgets/url_search_box.dart';
 
 class HomeView extends StatelessWidget {
@@ -19,6 +19,7 @@ class HomeView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final searchCtrl = context.watch<SearchFormatController>();
+    // ignore: unused_local_variable
     final templateCtrl = context.watch<TemplateController>();
     final downloadCtrl = context.watch<DownloadController>();
 
@@ -58,7 +59,10 @@ class HomeView extends StatelessWidget {
                 onTap: () => onNavigateTab?.call(1),
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.accentMuted,
                     borderRadius: BorderRadius.circular(20),
@@ -66,8 +70,11 @@ class HomeView extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.arrow_downward_rounded,
-                          size: 14, color: AppColors.accentBright),
+                      const Icon(
+                        Icons.arrow_downward_rounded,
+                        size: 14,
+                        color: AppColors.accentBright,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         '${downloadCtrl.activeCount} active',
@@ -90,13 +97,13 @@ class HomeView extends StatelessWidget {
             const SizedBox(height: 16),
 
             // Command Templates Quick Switch Bar
-            QuickTemplateBar(
-              controller: searchCtrl,
-              templates: templateCtrl.templates,
-            ),
-            const SizedBox(height: 16),
+            // QuickTemplateBar(
+            //   controller: searchCtrl,
+            //   templates: templateCtrl.templates,
+            // ),
+            // const SizedBox(height: 16),
 
-            // Inspect Formats Trigger Button
+            // Inspect Formats or Search Trigger Button
             SizedBox(
               width: double.infinity,
               height: 46,
@@ -126,7 +133,10 @@ class HomeView extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          Text('INSPECTING FORMATS...', style: AppStyles.monoLabel),
+                          Text(
+                            'SEARCHING YOUTUBE...',
+                            style: AppStyles.monoLabel,
+                          ),
                         ],
                       )
                     : Row(
@@ -135,7 +145,19 @@ class HomeView extends StatelessWidget {
                           const Icon(Icons.search_rounded, size: 18),
                           const SizedBox(width: 8),
                           Text(
-                            'FIND FORMATS (yt-dlp -F)',
+                            searchCtrl.urlInputController.text.trim().isEmpty
+                                ? 'SEARCH YOUTUBE'
+                                : (searchCtrl.urlInputController.text
+                                              .trim()
+                                              .startsWith('http://') ||
+                                          searchCtrl.urlInputController.text
+                                              .trim()
+                                              .startsWith('https://') ||
+                                          searchCtrl.urlInputController.text
+                                              .trim()
+                                              .contains('youtu')
+                                      ? 'FIND FORMATS'
+                                      : 'SEARCH YOUTUBE'),
                             style: AppStyles.monoLabel.copyWith(
                               letterSpacing: 0.5,
                             ),
@@ -158,13 +180,18 @@ class HomeView extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline_rounded,
-                        color: AppColors.error, size: 20),
+                    const Icon(
+                      Icons.error_outline_rounded,
+                      color: AppColors.error,
+                      size: 20,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         searchCtrl.errorMessage!,
-                        style: AppStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+                        style: AppStyles.bodyMedium.copyWith(
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                     ),
                   ],
@@ -239,8 +266,11 @@ class HomeView extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.terminal_rounded,
-                  color: AppColors.accentBright, size: 18),
+              const Icon(
+                Icons.terminal_rounded,
+                color: AppColors.accentBright,
+                size: 18,
+              ),
               const SizedBox(width: 8),
               Text('RAMEN CORE ARCHITECTURE', style: AppStyles.caption),
             ],

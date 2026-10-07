@@ -17,6 +17,9 @@ class NativeBridgeService {
   StreamSubscription? _nativeSubscription;
   bool _isInitialized = false;
 
+  // Active desktop download processes (taskId -> Process)
+  final Map<String, Process> _activeDesktopProcesses = {};
+
   NativeBridgeService() {
     _bindStream();
   }
@@ -34,11 +37,43 @@ class NativeBridgeService {
         debugPrint('Download stream error: $error');
       });
     } catch (e) {
-      debugPrint('EventChannel setup warning (Expected outside Android): $e');
+      debugPrint('EventChannel setup warning: $e');
     }
   }
 
   Stream<Map<String, dynamic>> get downloadStream => _streamController.stream;
+
+  /// Resolves raw user input (URL or search keywords) into a valid yt-dlp target
+  String resolveTarget(String input) {
+    final trimmed = input.trim();
+    if (trimmed.isEmpty) return trimmed;
+
+    // Check for ytsearch or other search prefixes
+    if (RegExp(r'^[a-z]+search\d*:', caseSensitive: false).hasMatch(trimmed)) {
+      return trimmed;
+    }
+
+    // Direct HTTP/HTTPS URL
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+
+    // Common video domains without protocol
+    if (trimmed.startsWith('www.youtube.com/') ||
+        trimmed.startsWith('youtube.com/') ||
+        trimmed.startsWith('youtu.be/') ||
+        trimmed.startsWith('m.youtube.com/')) {
+      return 'https://$trimmed';
+    }
+
+    // Generic domain without protocol (e.g. vimeo.com/...)
+    if (trimmed.contains('.') && !trimmed.contains(' ')) {
+      return 'https://$trimmed';
+    }
+
+    // Default to YouTube Search for keyword queries
+    return 'ytsearch10:$trimmed';
+  }
 
   /// Initializes the embedded yt-dlp, FFmpeg, and aria2c binaries
   Future<bool> initEngine() async {
@@ -52,42 +87,83 @@ class NativeBridgeService {
       _isInitialized = true;
       return true;
     } catch (e) {
-      debugPrint('Platform initEngine failed, falling back: $e');
-      _isInitialized = true;
-      return true;
+      debugPrint('Platform initEngine failed: $e');
+      return false;
     }
   }
 
   /// Fetches versions of yt-dlp, FFmpeg, and aria2c
   Future<Map<String, String>> getEngineVersions() async {
-    try {
-      if (Platform.isAndroid) {
+    if (Platform.isAndroid) {
+      try {
         final res = await _engineChannel
             .invokeMapMethod<String, String>('getEngineVersions');
         if (res != null) return res;
+      } catch (e) {
+        debugPrint('Android getEngineVersions error: $e');
       }
-    } catch (e) {
-      debugPrint('Engine version check fallback: $e');
+      return {
+        'ytdlp': 'yt-dlp (Embedded NDK)',
+        'ffmpeg': 'FFmpeg (Embedded NDK)',
+        'aria2c': 'aria2c (Embedded NDK)',
+      };
     }
+
+    // Desktop platform: query installed CLI binaries
+    String ytDlpVer = 'Not installed';
+    String ffmpegVer = 'Not installed';
+    String aria2cVer = 'Not installed';
+
+    try {
+      final ytRes = await Process.run('yt-dlp', ['--version'], runInShell: true);
+      if (ytRes.exitCode == 0 && ytRes.stdout.toString().trim().isNotEmpty) {
+        ytDlpVer = ytRes.stdout.toString().trim();
+      }
+    } catch (_) {}
+
+    try {
+      final ffRes = await Process.run('ffmpeg', ['-version'], runInShell: true);
+      if (ffRes.exitCode == 0) {
+        final firstLine = ffRes.stdout.toString().split('\n').first.trim();
+        ffmpegVer = firstLine.isNotEmpty ? firstLine : 'Available';
+      }
+    } catch (_) {}
+
+    try {
+      final ariaRes = await Process.run('aria2c', ['--version'], runInShell: true);
+      if (ariaRes.exitCode == 0) {
+        final firstLine = ariaRes.stdout.toString().split('\n').first.trim();
+        aria2cVer = firstLine.isNotEmpty ? firstLine : 'Available';
+      }
+    } catch (_) {}
+
     return {
-      'ytdlp': 'yt-dlp 2025.02.19 (NDK)',
-      'ffmpeg': 'FFmpeg 6.1 (arm64-v8a)',
-      'aria2c': 'aria2c 1.37.0',
+      'ytdlp': ytDlpVer,
+      'ffmpeg': ffmpegVer,
+      'aria2c': aria2cVer,
     };
   }
 
-  /// Triggers in-app update of the yt-dlp binary directly from upstream
+  /// Triggers update of the yt-dlp binary
   Future<String> updateEngine() async {
-    try {
-      if (Platform.isAndroid) {
+    if (Platform.isAndroid) {
+      try {
         final newVersion =
             await _engineChannel.invokeMethod<String>('updateEngine');
         return newVersion ?? 'Updated to latest stable';
+      } catch (e) {
+        throw Exception('Update failed: $e');
       }
-    } catch (e) {
-      debugPrint('Update engine error: $e');
     }
-    return 'yt-dlp is up to date (v2025.02.19)';
+
+    try {
+      final res = await Process.run('yt-dlp', ['-U'], runInShell: true);
+      final out = res.stdout.toString().trim();
+      final err = res.stderr.toString().trim();
+      return out.isNotEmpty ? out : (err.isNotEmpty ? err : 'yt-dlp update executed');
+    } catch (e) {
+      throw Exception('Update failed: $e');
+    }
   }
 
   /// Retrieves any URL shared to the app via Android ACTION_SEND intent
@@ -102,29 +178,73 @@ class NativeBridgeService {
     return null;
   }
 
-  /// Inspects formats for a given URL using yt-dlp
+  /// Inspects formats or performs search using yt-dlp
   Future<MediaResource> getFormats(
-    String url, {
+    String urlOrQuery, {
     List<String> extraArgs = const [],
   }) async {
-    try {
-      if (Platform.isAndroid) {
-        final rawJson = await _engineChannel.invokeMethod<String>(
-          'getFormats',
-          {'url': url, 'extraArgs': extraArgs},
-        );
-
-        if (rawJson != null && rawJson.isNotEmpty) {
-          final decoded = jsonDecode(rawJson) as Map<String, dynamic>;
-          return MediaResource.fromJson(decoded, url);
-        }
-      }
-    } catch (e) {
-      debugPrint('Native getFormats call exception: $e. Using parser fallback.');
+    final target = resolveTarget(urlOrQuery);
+    if (target.isEmpty) {
+      throw Exception('Target URL or search query cannot be empty');
     }
 
-    // Fallback/Simulation parser for development or sandbox environments
-    return _generateMockOrFallbackResource(url);
+    if (Platform.isAndroid) {
+      if (!_isInitialized) {
+        await initEngine();
+      }
+      final rawOut = await _engineChannel.invokeMethod<String>(
+        'getFormats',
+        {'url': target, 'extraArgs': extraArgs},
+      );
+
+      if (rawOut != null && rawOut.trim().isNotEmpty) {
+        return MediaResource.parseOutput(rawOut, target);
+      } else {
+        throw Exception('No media information returned by yt-dlp');
+      }
+    }
+
+    // Desktop execution: invoke local yt-dlp
+    return await _getFormatsViaDesktopCli(target, extraArgs);
+  }
+
+  Future<MediaResource> _getFormatsViaDesktopCli(
+    String target,
+    List<String> extraArgs,
+  ) async {
+    final cliArgs = [
+      '-F',
+      if (target.contains('list=') || target.startsWith('ytsearch') || target.contains('search'))
+        '--flat-playlist',
+      ...extraArgs.where((a) => !a.startsWith('-f') && !a.startsWith('--format') && a != '-F'),
+      target,
+    ];
+
+    ProcessResult res;
+    try {
+      res = await Process.run(
+        'yt-dlp',
+        cliArgs,
+        runInShell: true,
+        stdoutEncoding: utf8,
+        stderrEncoding: utf8,
+      );
+    } catch (e) {
+      throw Exception('yt-dlp execution error: $e. Ensure yt-dlp is installed and in PATH.');
+    }
+
+    if (res.exitCode != 0) {
+      final err = res.stderr.toString().trim();
+      final cleanErr = err.isNotEmpty ? err : 'yt-dlp exited with error code ${res.exitCode}';
+      throw Exception(cleanErr);
+    }
+
+    final rawOut = res.stdout.toString().trim();
+    if (rawOut.isEmpty) {
+      throw Exception('yt-dlp returned empty output for "$target"');
+    }
+
+    return MediaResource.parseOutput(rawOut, target);
   }
 
   /// Starts downloading the target stream with aria2c + FFmpeg muxing
@@ -134,219 +254,164 @@ class NativeBridgeService {
     required String outDir,
     required List<String> args,
   }) async {
-    try {
-      if (Platform.isAndroid) {
-        final result = await _engineChannel.invokeMethod<bool>(
-          'startDownload',
-          {
-            'taskId': taskId,
-            'url': url,
-            'outDir': outDir,
-            'args': args,
-          },
-        );
-        return result ?? false;
+    if (Platform.isAndroid) {
+      if (!_isInitialized) {
+        await initEngine();
       }
-    } catch (e) {
-      debugPrint('startDownload native call: $e');
+      final result = await _engineChannel.invokeMethod<bool>(
+        'startDownload',
+        {
+          'taskId': taskId,
+          'url': url,
+          'outDir': outDir,
+          'args': args,
+        },
+      );
+      return result ?? false;
     }
 
-    // Simulate progress stream in non-Android or mock execution environments
-    _simulateDownloadProgress(taskId);
-    return true;
+    // Desktop platform: run real download via yt-dlp process
+    return _startDesktopDownload(
+      taskId: taskId,
+      url: url,
+      outDir: outDir,
+      args: args,
+    );
   }
 
-  /// Cancels an active download process by its process ID
-  Future<bool> cancelDownload(String taskId) async {
+  Future<bool> _startDesktopDownload({
+    required String taskId,
+    required String url,
+    required String outDir,
+    required List<String> args,
+  }) async {
     try {
-      if (Platform.isAndroid) {
+      final targetDir = outDir.isNotEmpty ? Directory(outDir) : Directory.current;
+      if (!targetDir.existsSync()) {
+        targetDir.createSync(recursive: true);
+      }
+
+      final outTemplate = '${targetDir.path}${Platform.pathSeparator}%(title)s.%(ext)s';
+      final cliArgs = [
+        '-o',
+        outTemplate,
+        '--newline',
+        ...args,
+        url,
+      ];
+
+      final process = await Process.start(
+        'yt-dlp',
+        cliArgs,
+        runInShell: true,
+      );
+
+      _activeDesktopProcesses[taskId] = process;
+
+      final progressRegex = RegExp(
+        r'\[download\]\s+([\d\.]+)%\s+of\s+~?([^\s]+)\s+at\s+([^\s]+)\s+ETA\s+([^\s]+)',
+      );
+
+      final errorLines = <String>[];
+
+      process.stdout
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen((line) {
+        final match = progressRegex.firstMatch(line);
+        if (match != null) {
+          final progress = double.tryParse(match.group(1) ?? '') ?? 0.0;
+          final speed = match.group(3) ?? '';
+          final eta = match.group(4) ?? '';
+
+          _streamController.add({
+            'taskId': taskId,
+            'status': 'DOWNLOADING',
+            'progress': progress,
+            'speed': speed,
+            'eta': eta,
+            'log': line,
+          });
+        } else {
+          _streamController.add({
+            'taskId': taskId,
+            'status': 'DOWNLOADING',
+            'log': line,
+          });
+        }
+      });
+
+      process.stderr
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen((errLine) {
+        if (errLine.trim().isNotEmpty) {
+          errorLines.add(errLine.trim());
+        }
+      });
+
+      process.exitCode.then((exitCode) {
+        _activeDesktopProcesses.remove(taskId);
+        if (exitCode == 0) {
+          _streamController.add({
+            'taskId': taskId,
+            'status': 'COMPLETED',
+            'progress': 100.0,
+            'speed': '0.0 KB/s',
+            'eta': 'Done',
+            'log': 'Download completed successfully',
+          });
+        } else {
+          _streamController.add({
+            'taskId': taskId,
+            'status': 'FAILED',
+            'error': errorLines.isNotEmpty
+                ? errorLines.last
+                : 'Download failed with exit code $exitCode',
+            'log': errorLines.join('\n'),
+          });
+        }
+      });
+
+      return true;
+    } catch (e) {
+      _streamController.add({
+        'taskId': taskId,
+        'status': 'FAILED',
+        'error': 'Failed to launch yt-dlp: $e',
+        'log': e.toString(),
+      });
+      return false;
+    }
+  }
+
+  /// Cancels an active download process by its task ID
+  Future<bool> cancelDownload(String taskId) async {
+    if (Platform.isAndroid) {
+      try {
         final result = await _engineChannel.invokeMethod<bool>(
           'cancelDownload',
           {'taskId': taskId},
         );
         return result ?? false;
+      } catch (e) {
+        debugPrint('cancelDownload error: $e');
+        return false;
       }
-    } catch (e) {
-      debugPrint('cancelDownload error: $e');
+    }
+
+    final process = _activeDesktopProcesses.remove(taskId);
+    if (process != null) {
+      return process.kill();
     }
     return true;
   }
 
-  void _simulateDownloadProgress(String taskId) {
-    int current = 0;
-    Timer.periodic(const Duration(milliseconds: 600), (timer) {
-      current += 15;
-      if (current >= 100) {
-        timer.cancel();
-        _streamController.add({
-          'taskId': taskId,
-          'status': 'COMPLETED',
-          'progress': 100.0,
-          'speed': '0.0 KB/s',
-          'eta': '00:00',
-          'log': '[download] 100% of 124.5MiB in 00:12',
-        });
-      } else {
-        _streamController.add({
-          'taskId': taskId,
-          'status': 'DOWNLOADING',
-          'progress': current.toDouble(),
-          'speed': '14.2 MB/s',
-          'eta': '00:0${(100 - current) ~/ 15}',
-          'log': '[aria2c] Downloading chunk #$current/100',
-        });
-      }
-    });
-  }
-
-  MediaResource _generateMockOrFallbackResource(String url) {
-    final isPlaylist = url.contains('list=');
-    if (isPlaylist) {
-      return MediaResource(
-        id: 'PL_ramen_demo',
-        url: url,
-        title: 'Cyberpunk Edgerunners Official Soundtrack [Full Album]',
-        uploader: 'Studio TRIGGER',
-        thumbnail:
-            'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800',
-        isPlaylist: true,
-        playlistEntries: [
-          MediaResource(
-            id: 'demo_1',
-            url: 'https://youtube.com/watch?v=demo1',
-            title: 'I Really Want to Stay At Your House',
-            uploader: 'Rosa Walton',
-            thumbnail:
-                'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400',
-            durationSeconds: 246,
-            viewCount: 48900000,
-          ),
-          MediaResource(
-            id: 'demo_2',
-            url: 'https://youtube.com/watch?v=demo2',
-            title: 'This Fffire (Edgerunners Opening)',
-            uploader: 'Franz Ferdinand',
-            thumbnail:
-                'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400',
-            durationSeconds: 218,
-            viewCount: 15400000,
-          ),
-          MediaResource(
-            id: 'demo_3',
-            url: 'https://youtube.com/watch?v=demo3',
-            title: 'Whos Ready for Tomorrow',
-            uploader: 'Rat Boy',
-            thumbnail:
-                'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400',
-            durationSeconds: 156,
-            viewCount: 8200000,
-          ),
-        ],
-      );
-    }
-
-    return MediaResource(
-      id: 'demo_video',
-      url: url,
-      title: 'Lofi Girl - Synthwave & Chill Beats to Relax/Study to',
-      uploader: 'Lofi Girl',
-      thumbnail:
-          'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800',
-      durationSeconds: 3840,
-      viewCount: 12500000,
-      formats: [
-        // Video + Audio / Merged & Separate
-        FormatItem(
-          formatId: '313+140',
-          ext: 'mp4',
-          resolution: '2160p (4K)',
-          height: 2160,
-          width: 3840,
-          fps: 60,
-          vcodec: 'vp09.00',
-          acodec: 'mp4a.40.2',
-          filesize: 1420000000,
-          tbr: 18500,
-          isMerged: true,
-        ),
-        FormatItem(
-          formatId: '271+140',
-          ext: 'mp4',
-          resolution: '1440p (2K)',
-          height: 1440,
-          width: 2560,
-          fps: 60,
-          vcodec: 'vp09.00',
-          acodec: 'mp4a.40.2',
-          filesize: 850000000,
-          tbr: 9200,
-          isMerged: true,
-        ),
-        FormatItem(
-          formatId: '137+140',
-          ext: 'mp4',
-          resolution: '1080p (FHD)',
-          height: 1080,
-          width: 1920,
-          fps: 60,
-          vcodec: 'avc1.64002a',
-          acodec: 'mp4a.40.2',
-          filesize: 420000000,
-          tbr: 4500,
-          isMerged: true,
-        ),
-        FormatItem(
-          formatId: '22',
-          ext: 'mp4',
-          resolution: '720p (HD)',
-          height: 720,
-          width: 1280,
-          fps: 30,
-          vcodec: 'avc1.64001f',
-          acodec: 'mp4a.40.2',
-          filesize: 195000000,
-          tbr: 2100,
-          isMerged: true,
-        ),
-        FormatItem(
-          formatId: '18',
-          ext: 'mp4',
-          resolution: '360p (SD)',
-          height: 360,
-          width: 640,
-          fps: 30,
-          vcodec: 'avc1.42001e',
-          acodec: 'mp4a.40.2',
-          filesize: 65000000,
-          tbr: 650,
-          isMerged: true,
-        ),
-        // Audio Only Streams
-        FormatItem(
-          formatId: '251',
-          ext: 'webm',
-          vcodec: 'none',
-          acodec: 'opus',
-          filesize: 54000000,
-          tbr: 160,
-          formatNote: 'Opus 160kbps (Lossless Container)',
-          isAudioOnly: true,
-        ),
-        FormatItem(
-          formatId: '140',
-          ext: 'm4a',
-          vcodec: 'none',
-          acodec: 'mp4a.40.2',
-          filesize: 45000000,
-          tbr: 128,
-          formatNote: 'AAC 128kbps (Apple M4A)',
-          isAudioOnly: true,
-        ),
-      ],
-    );
-  }
-
   void dispose() {
+    for (final process in _activeDesktopProcesses.values) {
+      process.kill();
+    }
+    _activeDesktopProcesses.clear();
     _nativeSubscription?.cancel();
     _streamController.close();
   }

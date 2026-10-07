@@ -30,9 +30,31 @@ class MainActivity : FlutterActivity() {
     private val activeTasks = ConcurrentHashMap<String, String>() // taskId -> status
     private var sharedUrl: String? = null
 
+    @Synchronized
+    private fun ensureEngineInitialized() {
+        try {
+            YoutubeDL.getInstance().init(applicationContext)
+        } catch (e: Exception) {
+            android.util.Log.d("MainActivity", "YoutubeDL already initialized or: ${e.message}")
+        }
+        try {
+            FFmpeg.getInstance().init(applicationContext)
+        } catch (e: Exception) {
+            android.util.Log.d("MainActivity", "FFmpeg already initialized or: ${e.message}")
+        }
+        try {
+            Aria2c.getInstance().init(applicationContext)
+        } catch (e: Exception) {
+            android.util.Log.d("MainActivity", "Aria2c already initialized or: ${e.message}")
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         handleIntent(intent)
+        executor.execute {
+            ensureEngineInitialized()
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -71,9 +93,7 @@ class MainActivity : FlutterActivity() {
                     "initEngine" -> {
                         executor.execute {
                             try {
-                                YoutubeDL.getInstance().init(applicationContext)
-                                FFmpeg.getInstance().init(applicationContext)
-                                Aria2c.getInstance().init(applicationContext)
+                                ensureEngineInitialized()
                                 sendResultSuccess(result, true)
                             } catch (e: Exception) {
                                 sendResultError(result, "INIT_ERROR", e.localizedMessage ?: "Failed to initialize binaries", null)
@@ -90,18 +110,19 @@ class MainActivity : FlutterActivity() {
                     "getEngineVersions" -> {
                         executor.execute {
                             try {
-                                val ytDlpVer = YoutubeDL.getInstance().version(applicationContext) ?: "Unknown"
+                                ensureEngineInitialized()
+                                val ytDlpVer = YoutubeDL.getInstance().version(applicationContext) ?: "Embedded Mobile NDK"
                                 val versions = mapOf(
                                     "ytdlp" to ytDlpVer,
-                                    "ffmpeg" to "Embedded NDK",
-                                    "aria2c" to "Embedded NDK"
+                                    "ffmpeg" to "Embedded Mobile NDK",
+                                    "aria2c" to "Embedded Mobile NDK"
                                 )
                                 sendResultSuccess(result, versions)
                             } catch (e: Exception) {
                                 val fallback = mapOf(
-                                    "ytdlp" to "v2024.08.06",
-                                    "ffmpeg" to "Embedded",
-                                    "aria2c" to "Embedded"
+                                    "ytdlp" to "Embedded Mobile NDK",
+                                    "ffmpeg" to "Embedded Mobile NDK",
+                                    "aria2c" to "Embedded Mobile NDK"
                                 )
                                 sendResultSuccess(result, fallback)
                             }
@@ -111,6 +132,7 @@ class MainActivity : FlutterActivity() {
                     "updateEngine" -> {
                         executor.execute {
                             try {
+                                ensureEngineInitialized()
                                 val status = YoutubeDL.getInstance().updateYoutubeDL(applicationContext)
                                 val newVersion = YoutubeDL.getInstance().version(applicationContext) ?: "Updated"
                                 sendResultSuccess(result, newVersion)
@@ -135,6 +157,7 @@ class MainActivity : FlutterActivity() {
                                 request.addOption("--dump-single-json")
                                 request.addOption("--flat-playlist")
                                 request.addOption("--no-warnings")
+                                request.addOption("-F")
                                 for (arg in extraArgs) {
                                     if (arg.isNotBlank()) {
                                         request.addOption(arg)
@@ -166,6 +189,7 @@ class MainActivity : FlutterActivity() {
 
                         executor.execute {
                             try {
+                                ensureEngineInitialized()
                                 val targetDir = if (outDir.isNotBlank()) File(outDir) else applicationContext.getExternalFilesDir(null)
                                 if (targetDir != null && !targetDir.exists()) {
                                     targetDir.mkdirs()
@@ -174,12 +198,7 @@ class MainActivity : FlutterActivity() {
                                 val request = YoutubeDLRequest(url)
                                 val outTemplate = File(targetDir, "%(title)s.%(ext)s").absolutePath
                                 request.addOption("-o", outTemplate)
-
-                                for (arg in args) {
-                                    if (arg.isNotBlank()) {
-                                        request.addOption(arg)
-                                    }
-                                }
+                                applyOptions(request, args)
 
                                 YoutubeDL.getInstance().execute(request, taskId) { progress, etaInSeconds, line ->
                                     mainHandler.post {
@@ -241,6 +260,30 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun applyOptions(request: YoutubeDLRequest, args: List<String>) {
+        var i = 0
+        while (i < args.size) {
+            val arg = args[i].trim()
+            if (arg.isEmpty()) {
+                i++
+                continue
+            }
+
+            if (arg.startsWith("-")) {
+                if (i + 1 < args.size && !args[i + 1].startsWith("-")) {
+                    request.addOption(arg, args[i + 1].trim())
+                    i += 2
+                } else {
+                    request.addOption(arg)
+                    i++
+                }
+            } else {
+                request.addOption(arg)
+                i++
+            }
+        }
     }
 
     private fun sendResultSuccess(result: MethodChannel.Result, data: Any?) {

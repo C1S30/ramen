@@ -27,17 +27,26 @@ class UrlSearchBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasText = controller.urlInputController.text.trim().isNotEmpty;
+    final isUrl = controller.urlInputController.text.trim().startsWith('http://') ||
+        controller.urlInputController.text.trim().startsWith('https://') ||
+        controller.urlInputController.text.trim().contains('youtube.com') ||
+        controller.urlInputController.text.trim().contains('youtu.be');
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border, width: 1.2),
+        border: Border.all(
+          color: hasText ? AppColors.accent.withValues(alpha: 0.7) : AppColors.border,
+          width: 1.2,
+        ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       child: Row(
         children: [
-          const Icon(
-            Icons.link_rounded,
+          Icon(
+            isUrl ? Icons.link_rounded : Icons.search_rounded,
             color: AppColors.accent,
             size: 22,
           ),
@@ -46,37 +55,53 @@ class UrlSearchBox extends StatelessWidget {
             child: TextField(
               controller: controller.urlInputController,
               style: AppStyles.bodyLarge,
+              textInputAction: TextInputAction.search,
               decoration: InputDecoration(
-                hintText: 'Paste YouTube URL or media link...',
+                hintText: 'Search YouTube or paste media URL...',
                 hintStyle: AppStyles.bodyMedium.copyWith(color: AppColors.textMuted),
                 border: InputBorder.none,
                 isDense: true,
               ),
-              onSubmitted: (url) {
-                if (url.trim().isNotEmpty) {
-                  controller.inspectUrl(url.trim());
+              onSubmitted: (val) {
+                if (val.trim().isNotEmpty) {
+                  controller.inspectUrl(val.trim());
                 }
               },
             ),
           ),
           // Clear Button
-          if (controller.urlInputController.text.isNotEmpty)
+          if (hasText)
             IconButton(
               icon: const Icon(Icons.clear, color: AppColors.textMuted, size: 18),
+              tooltip: 'Clear input',
               onPressed: () {
                 controller.reset();
               },
             ),
-          // Paste Button
-          IconButton(
-            tooltip: 'Paste from clipboard',
-            icon: const Icon(
-              Icons.content_paste_rounded,
-              color: AppColors.textSecondary,
-              size: 20,
+          // Search Trigger Button when text exists
+          if (hasText)
+            IconButton(
+              tooltip: 'Search yt-dlp',
+              icon: const Icon(
+                Icons.arrow_forward_rounded,
+                color: AppColors.accentBright,
+                size: 20,
+              ),
+              onPressed: controller.isLoading
+                  ? null
+                  : () => controller.inspectUrl(),
             ),
-            onPressed: () => _pasteFromClipboard(context),
-          ),
+          // Paste Button
+          if (!hasText)
+            IconButton(
+              tooltip: 'Paste from clipboard',
+              icon: const Icon(
+                Icons.content_paste_rounded,
+                color: AppColors.textSecondary,
+                size: 20,
+              ),
+              onPressed: () => _pasteFromClipboard(context),
+            ),
         ],
       ),
     );

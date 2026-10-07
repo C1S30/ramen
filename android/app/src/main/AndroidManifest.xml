@@ -9,7 +9,7 @@
 
     <application
         android:label="Ramen"
-        android:name="${applicationName}"
+        android:name=".RamenApplication"
         android:icon="@mipmap/ic_launcher"
         android:requestLegacyExternalStorage="true">
         <activity

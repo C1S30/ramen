@@ -92,17 +92,20 @@ class SearchFormatController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Runs the Find Formats command
+  /// Runs the Find Formats or Search command via yt-dlp
   Future<void> inspectUrl([String? targetUrl]) async {
-    final query = (targetUrl ?? urlInputController.text).trim();
+    if (targetUrl != null && targetUrl.trim().isNotEmpty) {
+      urlInputController.text = targetUrl.trim();
+    }
+    final query = urlInputController.text.trim();
     if (query.isEmpty) {
-      _errorMessage = 'Please provide a valid YouTube or media URL';
+      _errorMessage = 'Please enter a search query or paste a media link';
       notifyListeners();
       return;
     }
 
-    if (!UrlValidator.isValidMediaUrl(query)) {
-      _errorMessage = 'Invalid URL format. Please paste a full media link.';
+    if (!UrlValidator.isValidInput(query)) {
+      _errorMessage = 'Invalid input. Please enter search terms or a media URL.';
       notifyListeners();
       return;
     }
@@ -115,10 +118,7 @@ class SearchFormatController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final resource = await _nativeBridge.getFormats(
-        query,
-        extraArgs: _userCustomFlags,
-      );
+      final resource = await _nativeBridge.getFormats(query);
 
       _currentResource = resource;
       if (resource.isPlaylist) {
@@ -127,7 +127,7 @@ class SearchFormatController extends ChangeNotifier {
         _autoSelectDefaultFormat();
       }
     } catch (e) {
-      _errorMessage = 'Failed to extract formats: $e';
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
     } finally {
       _isLoading = false;
       notifyListeners();

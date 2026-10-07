@@ -27,7 +27,11 @@ class TemplateEngineService {
       } else {
         if (selectedFormat.formatId.isNotEmpty &&
             selectedFormat.formatId != 'best') {
-          args.addAll(['-f', selectedFormat.formatId]);
+          if (selectedFormat.isVideoOnly) {
+            args.addAll(['-f', '${selectedFormat.formatId}+bestaudio/best']);
+          } else {
+            args.addAll(['-f', selectedFormat.formatId]);
+          }
         } else {
           args.addAll(['-f', 'bestvideo+bestaudio/best']);
         }

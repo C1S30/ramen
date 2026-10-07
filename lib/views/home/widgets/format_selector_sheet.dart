@@ -23,6 +23,7 @@ class FormatSelectorSheet extends StatelessWidget {
     final filteredFormats = controller.isAudioOnly
         ? formats.where((f) => f.isAudioOnly).toList()
         : formats.where((f) => !f.isAudioOnly || f.isMerged).toList();
+    print('Available formats: ${formats.length}');
 
     return Container(
       decoration: BoxDecoration(
@@ -51,7 +52,10 @@ class FormatSelectorSheet extends StatelessWidget {
                         width: 110,
                         height: 68,
                         color: AppColors.surfaceElevated,
-                        child: const Icon(Icons.movie_outlined, color: AppColors.textMuted),
+                        child: const Icon(
+                          Icons.movie_outlined,
+                          color: AppColors.textMuted,
+                        ),
                       ),
                     ),
                   ),
@@ -64,22 +68,31 @@ class FormatSelectorSheet extends StatelessWidget {
                         resource.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: AppStyles.bodyLarge.copyWith(fontWeight: FontWeight.w600),
+                        style: AppStyles.bodyLarge.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         resource.uploader ?? 'Unknown Channel',
-                        style: AppStyles.caption.copyWith(color: AppColors.textSecondary),
+                        style: AppStyles.caption.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Row(
                         children: [
                           if (resource.durationSeconds != null) ...[
                             Text(
-                              Formatters.formatDuration(resource.durationSeconds),
+                              Formatters.formatDuration(
+                                resource.durationSeconds,
+                              ),
                               style: AppStyles.monoSmall,
                             ),
-                            const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
+                            const Text(
+                              ' • ',
+                              style: TextStyle(color: AppColors.textMuted),
+                            ),
                           ],
                           if (resource.viewCount != null)
                             Text(
@@ -193,7 +206,9 @@ class FormatSelectorSheet extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              controller.isAudioOnly ? 'AUDIO BITRATES & FORMATS' : 'VIDEO RESOLUTIONS',
+              controller.isAudioOnly
+                  ? 'AUDIO BITRATES & FORMATS'
+                  : 'VIDEO RESOLUTIONS',
               style: AppStyles.caption,
             ),
           ),
@@ -214,7 +229,10 @@ class FormatSelectorSheet extends StatelessWidget {
                 onTap: () => controller.selectFormat(format),
                 borderRadius: BorderRadius.circular(10),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: isSelected
                         ? AppColors.accentMuted
@@ -234,7 +252,9 @@ class FormatSelectorSheet extends StatelessWidget {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: isSelected ? AppColors.accent : AppColors.textMuted,
+                            color: isSelected
+                                ? AppColors.accent
+                                : AppColors.textMuted,
                             width: 2,
                           ),
                         ),
@@ -270,10 +290,13 @@ class FormatSelectorSheet extends StatelessWidget {
                             const SizedBox(height: 2),
                             Text(
                               [
-                                if (format.ext.isNotEmpty) format.ext.toUpperCase(),
-                                if (format.vcodec != null && format.vcodec != 'none')
+                                if (format.ext.isNotEmpty)
+                                  format.ext.toUpperCase(),
+                                if (format.vcodec != null &&
+                                    format.vcodec != 'none')
                                   format.vcodec!.split('.').first,
-                                if (format.acodec != null && format.acodec != 'none')
+                                if (format.acodec != null &&
+                                    format.acodec != 'none')
                                   format.acodec!.split('.').first,
                               ].join(' • '),
                               style: AppStyles.monoSmall.copyWith(
@@ -289,7 +312,9 @@ class FormatSelectorSheet extends StatelessWidget {
                       if (format.filesize != null)
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.background,
                             borderRadius: BorderRadius.circular(6),
