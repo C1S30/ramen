@@ -68,7 +68,7 @@ class _RootNavigationViewState extends State<RootNavigationView>
 
     final List<Widget> pages = [
       HomeView(onNavigateTab: _onTabSelected),
-      const DownloadsView(),
+      DownloadsView(onNewDownloadRequested: () => _onTabSelected(0)),
       const TemplateEditorView(),
       const SettingsView(),
     ];

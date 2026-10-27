@@ -117,11 +117,12 @@ class SettingsView extends StatelessWidget {
                   subtitle: Text(
                     settings.downloadDirectory.isNotEmpty
                         ? settings.downloadDirectory
-                        : 'Default (App Storage / Downloads)',
-                    style: AppStyles.monoSmall,
+                        : 'Download/Ramen',
+                    style: AppStyles.monoSmall.copyWith(color: AppColors.accentBright),
                   ),
                   trailing: const Icon(Icons.folder_open_rounded,
                       color: AppColors.textSecondary),
+                  onTap: () => _showEditDirectoryDialog(context, settingsCtrl),
                 ),
               ],
             ),
@@ -269,9 +270,11 @@ class SettingsView extends StatelessWidget {
 
           _buildEngineRow('yt-dlp Engine', versions['ytdlp'] ?? 'Checking...'),
           const Divider(height: 16),
-          _buildEngineRow('FFmpeg Muxer', versions['ffmpeg'] ?? 'Embedded NDK'),
+          _buildEngineRow('FFmpeg Muxer', versions['ffmpeg'] ?? 'Checking...'),
           const Divider(height: 16),
-          _buildEngineRow('aria2c Downloader', versions['aria2c'] ?? 'Embedded NDK'),
+          _buildEngineRow('aria2c Downloader', versions['aria2c'] ?? 'Checking...'),
+          const Divider(height: 16),
+          _buildEngineRow('Node.js Runtime', versions['node'] ?? 'Checking...'),
 
           if (controller.updateMessage != null) ...[
             const SizedBox(height: 12),
@@ -301,6 +304,67 @@ class SettingsView extends StatelessWidget {
         Text(tool, style: AppStyles.bodyLarge),
         Text(version, style: AppStyles.monoSmall),
       ],
+    );
+  }
+
+  void _showEditDirectoryDialog(BuildContext context, SettingsController controller) {
+    final textController = TextEditingController(text: controller.settings.downloadDirectory);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        title: Text('Download Directory', style: AppStyles.titleMedium.copyWith(fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Specify directory path for media outputs:', style: AppStyles.caption),
+            const SizedBox(height: 10),
+            TextField(
+              controller: textController,
+              style: AppStyles.monoSmall.copyWith(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: AppColors.surfaceElevated,
+                hintText: 'Download/Ramen',
+                hintStyle: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextButton.icon(
+              icon: const Icon(Icons.restore_rounded, size: 16, color: AppColors.accentBright),
+              label: Text('Reset to Download/Ramen', style: AppStyles.monoSmall.copyWith(color: AppColors.accentBright)),
+              onPressed: () => textController.text = 'Download/Ramen',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('Cancel', style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              final newDir = textController.text.trim();
+              controller.setDownloadDirectory(newDir.isEmpty ? 'Download/Ramen' : newDir);
+              Navigator.of(ctx).pop();
+            },
+            child: Text('Save', style: AppStyles.monoSmall.copyWith(color: Colors.white)),
+          ),
+        ],
+      ),
     );
   }
 }

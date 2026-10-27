@@ -4,13 +4,12 @@ import '../../core/utils/url_validator.dart';
 import '../../models/command_template.dart';
 import '../../models/download_task.dart';
 import '../../models/media_resource.dart';
+import '../../models/ytdlp_options.dart';
 import '../../services/native_bridge_service.dart';
 import '../../services/task_queue_service.dart';
-import '../../services/template_engine_service.dart';
 
 class SearchFormatController extends ChangeNotifier {
   final NativeBridgeService _nativeBridge = getIt<NativeBridgeService>();
-  final TemplateEngineService _templateEngine = getIt<TemplateEngineService>();
   final TaskQueueService _taskQueue = getIt<TaskQueueService>();
 
   final TextEditingController urlInputController = TextEditingController();
@@ -19,36 +18,42 @@ class SearchFormatController extends ChangeNotifier {
   String? _errorMessage;
   MediaResource? _currentResource;
   FormatItem? _selectedFormat;
-  bool _isAudioOnly = false;
-  List<String> _userCustomFlags = [];
-  CommandTemplate _activeTemplate = CommandTemplate.defaultPresets.first;
-
-  // Playlist selection tracking
+  YtDlpOptions _options = const YtDlpOptions();
   final Set<String> _selectedPlaylistEntries = {};
+  CommandTemplate _activeTemplate = CommandTemplate.defaultPresets.first;
+  final List<String> _userCustomFlags = [];
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   MediaResource? get currentResource => _currentResource;
   FormatItem? get selectedFormat => _selectedFormat;
-  bool get isAudioOnly => _isAudioOnly;
-  List<String> get userCustomFlags => _userCustomFlags;
-  CommandTemplate get activeTemplate => _activeTemplate;
+  YtDlpOptions get options => _options;
+  bool get isAudioOnly => _options.isAudioOnly;
   Set<String> get selectedPlaylistEntries => _selectedPlaylistEntries;
+  CommandTemplate get activeTemplate => _activeTemplate;
+  List<String> get userCustomFlags => _userCustomFlags;
+
+  void setUrl(String url) {
+    urlInputController.text = url;
+    notifyListeners();
+  }
+
+  void clearUrl() {
+    urlInputController.clear();
+    notifyListeners();
+  }
 
   void setActiveTemplate(CommandTemplate template) {
     _activeTemplate = template;
     notifyListeners();
   }
 
-  void setCustomFlags(List<String> flags) {
-    _userCustomFlags = List.from(flags);
-    notifyListeners();
-  }
-
   void addCustomFlag(String flag) {
-    final trimmed = flag.trim();
-    if (trimmed.isNotEmpty && !_userCustomFlags.contains(trimmed)) {
-      _userCustomFlags.add(trimmed);
+    final clean = flag.trim();
+    if (clean.isNotEmpty && !_userCustomFlags.contains(clean)) {
+      _userCustomFlags.add(clean);
+      final merged = '${_options.rawCustomArgs} $clean'.trim();
+      _options = _options.copyWith(rawCustomArgs: merged);
       notifyListeners();
     }
   }
@@ -58,8 +63,16 @@ class SearchFormatController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateOptions(YtDlpOptions newOptions) {
+    _options = newOptions;
+    if (_currentResource != null) {
+      _autoSelectDefaultFormat();
+    }
+    notifyListeners();
+  }
+
   void setAudioOnly(bool value) {
-    _isAudioOnly = value;
+    _options = _options.copyWith(isAudioOnly: value);
     if (_currentResource != null) {
       _autoSelectDefaultFormat();
     }
@@ -92,8 +105,7 @@ class SearchFormatController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Runs the Find Formats or Search command via yt-dlp
-  Future<void> inspectUrl([String? targetUrl]) async {
+  Future<MediaResource?> inspectUrl([String? targetUrl]) async {
     if (targetUrl != null && targetUrl.trim().isNotEmpty) {
       urlInputController.text = targetUrl.trim();
     }
@@ -101,13 +113,13 @@ class SearchFormatController extends ChangeNotifier {
     if (query.isEmpty) {
       _errorMessage = 'Please enter a search query or paste a media link';
       notifyListeners();
-      return;
+      return null;
     }
 
     if (!UrlValidator.isValidInput(query)) {
       _errorMessage = 'Invalid input. Please enter search terms or a media URL.';
       notifyListeners();
-      return;
+      return null;
     }
 
     _isLoading = true;
@@ -119,15 +131,16 @@ class SearchFormatController extends ChangeNotifier {
 
     try {
       final resource = await _nativeBridge.getFormats(query);
-
       _currentResource = resource;
       if (resource.isPlaylist) {
         _selectedPlaylistEntries.addAll(resource.playlistEntries.map((e) => e.id));
       } else {
         _autoSelectDefaultFormat();
       }
+      return resource;
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      return null;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -137,7 +150,7 @@ class SearchFormatController extends ChangeNotifier {
   void _autoSelectDefaultFormat() {
     if (_currentResource == null || _currentResource!.formats.isEmpty) return;
 
-    if (_isAudioOnly) {
+    if (_options.isAudioOnly) {
       final audioFormats =
           _currentResource!.formats.where((f) => f.isAudioOnly).toList();
       if (audioFormats.isNotEmpty) {
@@ -154,76 +167,41 @@ class SearchFormatController extends ChangeNotifier {
     }
   }
 
-  /// Builds preview CLI command string
   String get previewCommandLine {
     if (_currentResource == null) return '';
-    final args = _templateEngine.buildDownloadArgs(
-      template: _activeTemplate,
-      selectedFormat: _selectedFormat ??
-          FormatItem(formatId: 'best', ext: _isAudioOnly ? 'm4a' : 'mp4'),
-      isAudioOnly: _isAudioOnly,
-      userCustomFlags: _userCustomFlags,
-    );
-    return _templateEngine.formatCommandLine(_currentResource!.url, args);
+    final chosenFormatId = _selectedFormat?.formatId ?? (_options.isAudioOnly ? 'bestaudio' : 'best');
+    return _options.toCommandLine(_currentResource!.url, chosenFormatId);
   }
 
-  /// Enqueues the selected format(s) for download
-  Future<int> startDownload() async {
-    if (_currentResource == null) return 0;
+  Future<DownloadTask?> startDownload({String? targetTabId}) async {
+    if (_currentResource == null) return null;
 
-    int queuedCount = 0;
-
-    if (_currentResource!.isPlaylist) {
-      final itemsToDownload = _currentResource!.playlistEntries
-          .where((e) => _selectedPlaylistEntries.contains(e.id))
-          .toList();
-
-      for (final item in itemsToDownload) {
-        final task = DownloadTask(
-          id: 'task_${item.id}_${DateTime.now().millisecondsSinceEpoch}',
-          url: item.url,
-          title: item.title,
-          uploader: item.uploader,
-          thumbnailUrl: item.thumbnail,
-          durationSeconds: item.durationSeconds,
-          selectedFormatId: 'best',
-          extension: _isAudioOnly ? 'm4a' : 'mp4',
-          commandFlags: _templateEngine.buildDownloadArgs(
-            template: _activeTemplate,
-            selectedFormat: FormatItem(formatId: 'best', ext: 'mp4'),
-            isAudioOnly: _isAudioOnly,
-            userCustomFlags: _userCustomFlags,
-          ),
+    final chosen = _selectedFormat ??
+        FormatItem(
+          formatId: _options.isAudioOnly ? 'bestaudio' : 'best',
+          ext: _options.isAudioOnly ? _options.audioFormat : 'mp4',
         );
-        await _taskQueue.enqueueTask(task);
-        queuedCount++;
-      }
-    } else {
-      final chosen = _selectedFormat ??
-          FormatItem(formatId: 'best', ext: _isAudioOnly ? 'm4a' : 'mp4');
 
-      final task = DownloadTask(
-        id: 'task_${_currentResource!.id}_${DateTime.now().millisecondsSinceEpoch}',
-        url: _currentResource!.url,
-        title: _currentResource!.title,
-        uploader: _currentResource!.uploader,
-        thumbnailUrl: _currentResource!.thumbnail,
-        durationSeconds: _currentResource!.durationSeconds,
-        selectedFormatId: chosen.formatId,
-        extension: _isAudioOnly ? 'm4a' : (chosen.ext.isNotEmpty ? chosen.ext : 'mp4'),
-        totalBytes: chosen.filesize,
-        commandFlags: _templateEngine.buildDownloadArgs(
-          template: _activeTemplate,
-          selectedFormat: chosen,
-          isAudioOnly: _isAudioOnly,
-          userCustomFlags: _userCustomFlags,
-        ),
-      );
-      await _taskQueue.enqueueTask(task);
-      queuedCount++;
-    }
+    final ext = _options.isAudioOnly
+        ? _options.audioFormat
+        : (chosen.ext.isNotEmpty ? chosen.ext : 'mp4');
 
-    return queuedCount;
+    final task = DownloadTask(
+      id: 'task_${_currentResource!.id}_${DateTime.now().millisecondsSinceEpoch}',
+      url: _currentResource!.url,
+      title: _currentResource!.title,
+      uploader: _currentResource!.uploader,
+      thumbnailUrl: _currentResource!.thumbnail,
+      durationSeconds: _currentResource!.durationSeconds,
+      selectedFormatId: chosen.formatId,
+      extension: ext,
+      totalBytes: chosen.filesize,
+      commandFlags: _options.buildArgs(formatId: chosen.formatId),
+      tabId: targetTabId,
+    );
+
+    await _taskQueue.enqueueTask(task);
+    return task;
   }
 
   void reset() {

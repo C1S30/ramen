@@ -1,12 +1,12 @@
 package com.ramen.ramen
 
-import io.flutter.app.FlutterApplication
+import android.app.Application
 import android.util.Log
 import com.yausername.aria2c.Aria2c
 import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
 
-class RamenApplication : FlutterApplication() {
+class RamenApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         try {

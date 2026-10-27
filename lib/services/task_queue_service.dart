@@ -46,6 +46,11 @@ class TaskQueueService {
       final speed = data['speed']?.toString() ?? task.speed;
       final eta = data['eta']?.toString() ?? task.eta;
 
+      final log = data['log']?.toString();
+      if (log != null && log.isNotEmpty) {
+        task.appendLog(log);
+      }
+
       task.progress = progress;
       task.speed = speed;
       task.eta = eta;
@@ -61,6 +66,11 @@ class TaskQueueService {
       } else if (statusStr == 'FAILED') {
         task.status = DownloadStatus.failed;
         task.errorLog = data['error']?.toString();
+        _storageService.saveTask(task);
+        _processQueue();
+      } else if (statusStr == 'CANCELLED') {
+        task.status = DownloadStatus.cancelled;
+        task.speed = 'Cancelled';
         _storageService.saveTask(task);
         _processQueue();
       } else if (statusStr == 'DOWNLOADING') {
@@ -158,11 +168,27 @@ class TaskQueueService {
     _storageService.saveTask(toStart);
     _notify();
 
+    final effectiveArgs = List<String>.from(toStart.commandFlags);
+    if (settings.useAria2c &&
+        !effectiveArgs.contains('--downloader') &&
+        !effectiveArgs.contains('--external-downloader')) {
+      final threads = settings.aria2Threads;
+      effectiveArgs.addAll([
+        '-N', '$threads',
+        '--downloader', 'aria2c',
+        '--downloader-args', 'aria2c:-c -j $threads -x $threads -s $threads -k 1M',
+      ]);
+    }
+
+    final effectiveDir = settings.downloadDirectory.trim().isNotEmpty
+        ? settings.downloadDirectory.trim()
+        : 'Download/Ramen';
+
     _nativeBridgeService.startDownload(
       taskId: toStart.id,
       url: toStart.url,
-      outDir: settings.downloadDirectory,
-      args: toStart.commandFlags,
+      outDir: effectiveDir,
+      args: effectiveArgs,
     );
   }
 

@@ -11,12 +11,12 @@ android {
     ndkVersion = "27.0.12077973"
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "17"
     }
 
     defaultConfig {
@@ -37,13 +37,26 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = true
+            keepDebugSymbols.addAll(
+                listOf(
+                    "**/*.zip.so",
+                    "**/lib*.zip.so"
+                )
+            )
+            pickFirsts.addAll(
+                listOf(
+                    "lib/*/libpython*.so",
+                    "lib/*/libffmpeg*.so",
+                    "lib/*/libaria2c*.so"
+                )
+            )
         }
         resources {
             pickFirsts.addAll(
                 listOf(
-                    "lib/*/libpython3.8.so",
-                    "lib/*/libffmpeg.so",
-                    "lib/*/libaria2c.so"
+                    "lib/*/libpython*.so",
+                    "lib/*/libffmpeg*.so",
+                    "lib/*/libaria2c*.so"
                 )
             )
         }
@@ -63,7 +76,7 @@ flutter {
 }
 
 dependencies {
-    implementation("com.github.yausername.youtubedl-android:library:0.15.0")
-    implementation("com.github.yausername.youtubedl-android:ffmpeg:0.15.0")
-    implementation("com.github.yausername.youtubedl-android:aria2c:0.15.0")
+    implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
+    implementation("io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1")
+    implementation("io.github.junkfood02.youtubedl-android:aria2c:0.18.1")
 }

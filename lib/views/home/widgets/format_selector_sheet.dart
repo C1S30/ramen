@@ -23,7 +23,6 @@ class FormatSelectorSheet extends StatelessWidget {
     final filteredFormats = controller.isAudioOnly
         ? formats.where((f) => f.isAudioOnly).toList()
         : formats.where((f) => !f.isAudioOnly || f.isMerged).toList();
-    print('Available formats: ${formats.length}');
 
     return Container(
       decoration: BoxDecoration(

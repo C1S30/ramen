@@ -19,7 +19,7 @@ class DownloadTask {
   final String extension;
   final int? totalBytes;
   int downloadedBytes;
-  double progress; // 0.0 to 100.0
+  double progress;
   String speed;
   String eta;
   DownloadStatus status;
@@ -28,6 +28,9 @@ class DownloadTask {
   DateTime? completedAt;
   List<String> commandFlags;
   String? errorLog;
+  final List<String> logs;
+  String? currentPhase;
+  String? tabId;
 
   DownloadTask({
     required this.id,
@@ -49,7 +52,11 @@ class DownloadTask {
     this.completedAt,
     this.commandFlags = const [],
     this.errorLog,
-  }) : createdAt = createdAt ?? DateTime.now();
+    List<String>? logs,
+    this.currentPhase,
+    this.tabId,
+  })  : createdAt = createdAt ?? DateTime.now(),
+        logs = logs ?? [];
 
   bool get isActive =>
       status == DownloadStatus.queued ||
@@ -59,6 +66,25 @@ class DownloadTask {
   bool get isCompleted => status == DownloadStatus.completed;
   bool get isFailed => status == DownloadStatus.failed;
   bool get isPaused => status == DownloadStatus.paused;
+
+  void appendLog(String log) {
+    final clean = log.trim();
+    if (clean.isEmpty) return;
+    if (logs.length > 200) {
+      logs.removeAt(0);
+    }
+    logs.add(clean);
+
+    if (clean.contains('[download]') || clean.contains('aria2c')) {
+      currentPhase = 'Downloading stream (aria2c)';
+    } else if (clean.contains('[Merger]') || clean.contains('ffmpeg') || clean.contains('Muxing')) {
+      currentPhase = 'Multiplexing container (FFmpeg)';
+    } else if (clean.contains('[Metadata]') || clean.contains('[Thumbnails]')) {
+      currentPhase = 'Embedding metadata & artwork';
+    } else if (clean.contains('[ExtractAudio]')) {
+      currentPhase = 'Extracting audio (FFmpeg)';
+    }
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -80,6 +106,7 @@ class DownloadTask {
         'completedAt': completedAt?.toIso8601String(),
         'commandFlags': commandFlags,
         'errorLog': errorLog,
+        'tabId': tabId,
       };
 
   factory DownloadTask.fromJson(Map<dynamic, dynamic> map) {
@@ -113,6 +140,7 @@ class DownloadTask {
               .toList() ??
           [],
       errorLog: map['errorLog']?.toString(),
+      tabId: map['tabId']?.toString(),
     );
   }
 }

@@ -10,7 +10,7 @@ class AppSettings {
   String defaultVideoContainer;
 
   AppSettings({
-    this.downloadDirectory = '',
+    this.downloadDirectory = 'Download/Ramen',
     this.useAria2c = true,
     this.aria2Threads = 16,
     this.maxConcurrentDownloads = 3,
@@ -61,7 +61,10 @@ class AppSettings {
 
   factory AppSettings.fromJson(Map<dynamic, dynamic> map) {
     return AppSettings(
-      downloadDirectory: map['downloadDirectory']?.toString() ?? '',
+      downloadDirectory: (map['downloadDirectory'] == null ||
+              map['downloadDirectory'].toString().trim().isEmpty)
+          ? 'Download/Ramen'
+          : map['downloadDirectory'].toString(),
       useAria2c: map['useAria2c'] as bool? ?? true,
       aria2Threads: (map['aria2Threads'] as num?)?.toInt() ?? 16,
       maxConcurrentDownloads:
