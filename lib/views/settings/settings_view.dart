@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_styles.dart';
 import '../../controllers/settings_controller.dart';
+import '../preview/widgets/advanced_ytdlp_sheet.dart';
 
 class SettingsView extends StatelessWidget {
   const SettingsView({super.key});
@@ -175,6 +176,140 @@ class SettingsView extends StatelessWidget {
                       }
                     },
                   ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Advanced yt-dlp Engine Options (Pro)
+            _buildSectionHeader('ADVANCED YT-DLP CONFIGURATION (PRO)'),
+            const SizedBox(height: 10),
+            _buildSettingCard(
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppColors.chipBackground,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(
+                      Icons.tune_rounded,
+                      size: 16,
+                      color: AppColors.accentBright,
+                    ),
+                  ),
+                  title: Text('Interactive yt-dlp Suite', style: AppStyles.bodyLarge),
+                  subtitle: Text(
+                    'Full visual editor for aria2c, proxy, cookies & CLI flags',
+                    style: AppStyles.caption,
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded,
+                      size: 14, color: AppColors.textMuted),
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => AdvancedYtDlpSheet(
+                        initialOptions: settings.toYtDlpOptions(),
+                        targetUrl: 'https://example.com/video',
+                        formatId: 'bestvideo+bestaudio/best',
+                        onOptionsChanged: (newOpts) =>
+                            settingsCtrl.updateFromYtDlpOptions(newOpts),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppColors.accent,
+                  title: Text('Embed Subtitles', style: AppStyles.bodyLarge),
+                  subtitle: Text('Embeds subs into MP4/MKV video stream', style: AppStyles.caption),
+                  value: settings.embedSubtitles,
+                  onChanged: (val) =>
+                      settingsCtrl.updateSettings(settings.copyWith(embedSubtitles: val)),
+                ),
+                const Divider(),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppColors.accent,
+                  title: Text('Embed Thumbnail & Artwork', style: AppStyles.bodyLarge),
+                  subtitle: Text('Attach cover image to media tags', style: AppStyles.caption),
+                  value: settings.embedThumbnail,
+                  onChanged: (val) =>
+                      settingsCtrl.updateSettings(settings.copyWith(embedThumbnail: val)),
+                ),
+                const Divider(),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppColors.accent,
+                  title: Text('Embed Chapters & Metadata', style: AppStyles.bodyLarge),
+                  subtitle: Text('Writes artist, title and chapter intervals', style: AppStyles.caption),
+                  value: settings.embedChapters,
+                  onChanged: (val) =>
+                      settingsCtrl.updateSettings(settings.copyWith(embedChapters: val, embedMetadata: val)),
+                ),
+                const Divider(),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppColors.accent,
+                  title: Text('SponsorBlock (Auto-Skip)', style: AppStyles.bodyLarge),
+                  subtitle: Text('Removes sponsor segments and filler intros', style: AppStyles.caption),
+                  value: settings.enableSponsorBlock,
+                  onChanged: (val) =>
+                      settingsCtrl.updateSettings(settings.copyWith(enableSponsorBlock: val)),
+                ),
+                const Divider(),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppColors.accent,
+                  title: Text('Geographic Bypass', style: AppStyles.bodyLarge),
+                  subtitle: Text('Bypasses geographical restrictions', style: AppStyles.caption),
+                  value: settings.geoBypass,
+                  onChanged: (val) =>
+                      settingsCtrl.updateSettings(settings.copyWith(geoBypass: val)),
+                ),
+                const Divider(),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text('Network Proxy', style: AppStyles.bodyLarge),
+                  subtitle: Text(
+                    settings.proxy.isNotEmpty ? settings.proxy : 'Direct connection (No proxy)',
+                    style: AppStyles.monoSmall.copyWith(
+                      color: settings.proxy.isNotEmpty ? AppColors.accentBright : AppColors.textMuted,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.edit_outlined, size: 18, color: AppColors.textSecondary),
+                  onTap: () => _showEditProxyDialog(context, settingsCtrl),
+                ),
+                const Divider(),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text('Rate Limit', style: AppStyles.bodyLarge),
+                  subtitle: Text(
+                    settings.rateLimit.isNotEmpty ? settings.rateLimit : 'Unlimited bandwidth',
+                    style: AppStyles.monoSmall.copyWith(
+                      color: settings.rateLimit.isNotEmpty ? AppColors.accentBright : AppColors.textMuted,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.edit_outlined, size: 18, color: AppColors.textSecondary),
+                  onTap: () => _showEditRateLimitDialog(context, settingsCtrl),
+                ),
+                const Divider(),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text('Custom yt-dlp Flags', style: AppStyles.bodyLarge),
+                  subtitle: Text(
+                    settings.rawCustomArgs.isNotEmpty ? settings.rawCustomArgs : 'None specified',
+                    style: AppStyles.monoSmall.copyWith(
+                      color: settings.rawCustomArgs.isNotEmpty ? AppColors.accentBright : AppColors.textMuted,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.edit_outlined, size: 18, color: AppColors.textSecondary),
+                  onTap: () => _showEditRawFlagsDialog(context, settingsCtrl),
                 ),
               ],
             ),
@@ -359,6 +494,172 @@ class SettingsView extends StatelessWidget {
             onPressed: () {
               final newDir = textController.text.trim();
               controller.setDownloadDirectory(newDir.isEmpty ? 'Download/Ramen' : newDir);
+              Navigator.of(ctx).pop();
+            },
+            child: Text('Save', style: AppStyles.monoSmall.copyWith(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditProxyDialog(BuildContext context, SettingsController controller) {
+    final textController = TextEditingController(text: controller.settings.proxy);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        title: Text('Network Proxy', style: AppStyles.titleMedium.copyWith(fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Specify SOCKS5 or HTTP proxy URL:', style: AppStyles.caption),
+            const SizedBox(height: 10),
+            TextField(
+              controller: textController,
+              style: AppStyles.monoSmall.copyWith(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: AppColors.surfaceElevated,
+                hintText: 'socks5://127.0.0.1:1080',
+                hintStyle: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('Cancel', style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              final newProxy = textController.text.trim();
+              controller.updateSettings(controller.settings.copyWith(proxy: newProxy));
+              Navigator.of(ctx).pop();
+            },
+            child: Text('Save', style: AppStyles.monoSmall.copyWith(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditRateLimitDialog(BuildContext context, SettingsController controller) {
+    final textController = TextEditingController(text: controller.settings.rateLimit);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        title: Text('Speed Rate Limit', style: AppStyles.titleMedium.copyWith(fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Maximum download rate (e.g. 5M, 500K):', style: AppStyles.caption),
+            const SizedBox(height: 10),
+            TextField(
+              controller: textController,
+              style: AppStyles.monoSmall.copyWith(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: AppColors.surfaceElevated,
+                hintText: '5M',
+                hintStyle: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('Cancel', style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              final limit = textController.text.trim();
+              controller.updateSettings(controller.settings.copyWith(rateLimit: limit));
+              Navigator.of(ctx).pop();
+            },
+            child: Text('Save', style: AppStyles.monoSmall.copyWith(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditRawFlagsDialog(BuildContext context, SettingsController controller) {
+    final textController = TextEditingController(text: controller.settings.rawCustomArgs);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        title: Text('Custom yt-dlp Flags', style: AppStyles.titleMedium.copyWith(fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Pass raw arguments directly to the yt-dlp binary:', style: AppStyles.caption),
+            const SizedBox(height: 10),
+            TextField(
+              controller: textController,
+              maxLines: 3,
+              style: AppStyles.monoSmall.copyWith(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: AppColors.surfaceElevated,
+                hintText: '--no-check-certificates --referer https://...',
+                hintStyle: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('Cancel', style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              final raw = textController.text.trim();
+              controller.updateSettings(controller.settings.copyWith(rawCustomArgs: raw));
               Navigator.of(ctx).pop();
             },
             child: Text('Save', style: AppStyles.monoSmall.copyWith(color: Colors.white)),

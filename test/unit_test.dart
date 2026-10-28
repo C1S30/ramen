@@ -3,6 +3,7 @@ import 'package:ramen/core/utils/formatters.dart';
 import 'package:ramen/core/utils/url_validator.dart';
 import 'package:ramen/models/command_template.dart';
 import 'package:ramen/models/media_resource.dart';
+import 'package:ramen/models/ytdlp_options.dart';
 import 'package:ramen/services/template_engine_service.dart';
 
 void main() {
@@ -197,6 +198,34 @@ sb3 mhtml 48x27        0    |                   mhtml | images                  
       expect(f137.resolution, '1080p');
       expect(f137.fps, 25);
       expect(f137.filesize, isNotNull);
+    });
+  });
+
+  group('Dual Stream and Single Stream Option Flags Tests', () {
+    test('Synthesizes flags for combined video + audio selection', () {
+      const options = YtDlpOptions(isAudioOnly: false);
+      final flags = options.buildArgs(formatId: '137+140');
+      expect(flags.contains('-f'), isTrue);
+      expect(flags.contains('137+140'), isTrue);
+      expect(flags.contains('-x'), isFalse);
+    });
+
+    test('Synthesizes flags for video-only selection', () {
+      const options = YtDlpOptions(isAudioOnly: false);
+      final flags = options.buildArgs(formatId: '137');
+      expect(flags.contains('-f'), isTrue);
+      expect(flags.contains('137'), isTrue);
+      expect(flags.contains('-x'), isFalse);
+    });
+
+    test('Synthesizes flags for audio-only selection', () {
+      const options = YtDlpOptions(isAudioOnly: true, audioFormat: 'mp3');
+      final flags = options.buildArgs(formatId: '140');
+      expect(flags.contains('-f'), isTrue);
+      expect(flags.contains('140'), isTrue);
+      expect(flags.contains('-x'), isTrue);
+      expect(flags.contains('--audio-format'), isTrue);
+      expect(flags.contains('mp3'), isTrue);
     });
   });
 }

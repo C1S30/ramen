@@ -64,28 +64,28 @@ class CommandTemplate {
 
   static List<CommandTemplate> get defaultPresets => [
         CommandTemplate(
-          id: 'ultra_fast_aria2c',
-          name: 'Ultra-Fast Multi-Segment',
-          description: 'Leverages aria2c with 16 parallel socket connections',
+          id: 'best_video_mux',
+          name: 'Best Video + Audio Mux',
+          description: 'Merges highest resolution video with best audio stream',
           flags: [
-            '-N', '16',
-            '--downloader', 'aria2c',
-            '--downloader-args', 'aria2c:-x 16 -s 16 -k 1M',
+            '-f', 'bestvideo+bestaudio/best',
+            '--merge-output-format', 'mp4',
           ],
           isBuiltIn: true,
           isDefault: true,
-          iconKey: 'bolt',
+          iconKey: 'video',
         ),
         CommandTemplate(
-          id: 'best_video_mux',
-          name: 'Best 4K/UHD Video + Audio',
-          description: 'Merges highest resolution stream with best audio into MKV',
+          id: 'ultra_fast_aria2c',
+          name: 'Multi-Segment (aria2c)',
+          description: 'Leverages aria2c with parallel socket connections',
           flags: [
-            '-f', 'bestvideo+bestaudio/best',
-            '--merge-output-format', 'mkv',
+            '-N', '8',
+            '--downloader', 'aria2c',
+            '--downloader-args', 'aria2c:-c -j 4 -x 4 -s 4 -k 1M',
           ],
           isBuiltIn: true,
-          iconKey: 'video',
+          iconKey: 'bolt',
         ),
         CommandTemplate(
           id: 'lossless_audio',

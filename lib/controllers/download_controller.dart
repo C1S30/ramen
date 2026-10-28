@@ -92,7 +92,17 @@ class DownloadController extends ChangeNotifier {
     }
   }
 
+  void associateTaskWithTab(String tabId, String taskId) {
+    final index = _tabs.indexWhere((t) => t.id == tabId);
+    if (index != -1) {
+      _tabs[index] = _tabs[index].copyWith(assignedTaskId: taskId);
+      notifyListeners();
+    }
+  }
+
   void _syncTabsWithTasks() {
+    final List<String> tabsToClose = [];
+
     for (int i = 0; i < _tabs.length; i++) {
       final tab = _tabs[i];
       if (tab.assignedTaskId != null) {
@@ -104,6 +114,21 @@ class DownloadController extends ChangeNotifier {
           _tabs[i] = tab.copyWith(title: cleanTitle);
         }
       }
+
+      if (tab.isClosable) {
+        final linkedTasks = _allTasks.where((t) =>
+            (tab.assignedTaskId != null && t.id == tab.assignedTaskId) ||
+            (t.tabId == tab.id)).toList();
+
+        if (linkedTasks.isNotEmpty &&
+            linkedTasks.every((t) => t.isCompleted || t.isFailed)) {
+          tabsToClose.add(tab.id);
+        }
+      }
+    }
+
+    for (final tabId in tabsToClose) {
+      closeTab(tabId);
     }
   }
 

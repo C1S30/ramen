@@ -12,6 +12,8 @@ class TaskQueueService {
   StreamSubscription? _progressSubscription;
   final StreamController<List<DownloadTask>> _tasksController =
       StreamController<List<DownloadTask>>.broadcast();
+  final StreamController<DownloadTask> _taskCompletedController =
+      StreamController<DownloadTask>.broadcast();
 
   TaskQueueService({
     required StorageService storageService,
@@ -23,6 +25,7 @@ class TaskQueueService {
   }
 
   Stream<List<DownloadTask>> get tasksStream => _tasksController.stream;
+  Stream<DownloadTask> get onTaskCompleted => _taskCompletedController.stream;
   List<DownloadTask> get tasks => List.unmodifiable(_tasks);
 
   void _loadInitialTasks() {
@@ -62,6 +65,7 @@ class TaskQueueService {
         task.speed = '0.0 KB/s';
         task.eta = 'Done';
         _storageService.saveTask(task);
+        _taskCompletedController.add(task);
         _processQueue(); // Start next queued task
       } else if (statusStr == 'FAILED') {
         task.status = DownloadStatus.failed;
@@ -199,5 +203,6 @@ class TaskQueueService {
   void dispose() {
     _progressSubscription?.cancel();
     _tasksController.close();
+    _taskCompletedController.close();
   }
 }

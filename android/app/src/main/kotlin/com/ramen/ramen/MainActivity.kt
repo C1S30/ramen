@@ -518,24 +518,98 @@ class MainActivity : FlutterActivity() {
 
                                 val speedRegex = Regex("""at\s+([0-9.]+\s*[kKmMgG]?[iI]?[bB]/s)""")
 
-                                YoutubeDL.getInstance().execute(request, taskId) { progress, etaInSeconds, line ->
-                                    if (cancelledTasks.contains(taskId)) {
-                                        return@execute
-                                    }
-                                    val rawLine = line ?: ""
-                                    val speedMatch = speedRegex.find(rawLine)
-                                    val speed = speedMatch?.groupValues?.getOrNull(1) ?: ""
+                                var downloadException: Exception? = null
+                                try {
+                                    YoutubeDL.getInstance().execute(request, taskId) { progress, etaInSeconds, line ->
+                                        if (cancelledTasks.contains(taskId)) {
+                                            return@execute
+                                        }
+                                        val rawLine = line ?: ""
+                                        val speedMatch = speedRegex.find(rawLine)
+                                        val speed = speedMatch?.groupValues?.getOrNull(1) ?: ""
 
-                                    emitEvent(
-                                        mapOf(
-                                            "taskId" to taskId,
-                                            "status" to "DOWNLOADING",
-                                            "progress" to progress.toDouble(),
-                                            "speed" to speed,
-                                            "eta" to etaInSeconds,
-                                            "log" to rawLine
+                                        emitEvent(
+                                            mapOf(
+                                                "taskId" to taskId,
+                                                "status" to "DOWNLOADING",
+                                                "progress" to progress.toDouble(),
+                                                "speed" to speed,
+                                                "eta" to etaInSeconds,
+                                                "log" to rawLine
+                                            )
                                         )
-                                    )
+                                    }
+                                } catch (e: Exception) {
+                                    downloadException = e
+                                }
+
+                                // Resilient fallback: If aria2c fails (e.g. exit code 22 HTTP 403), retry seamlessly via yt-dlp native downloader
+                                if (downloadException != null && !cancelledTasks.contains(taskId)) {
+                                    val err = downloadException.message ?: ""
+                                    if (err.contains("aria2c", ignoreCase = true) || err.contains("exit code 22", ignoreCase = true) || err.contains("code 22", ignoreCase = true)) {
+                                        android.util.Log.w(TAG, "aria2c rejected ($err), retrying with yt-dlp native multi-fragment downloader for $taskId")
+                                        emitEvent(
+                                            mapOf(
+                                                "taskId" to taskId,
+                                                "status" to "DOWNLOADING",
+                                                "progress" to 0.0,
+                                                "speed" to "Retrying...",
+                                                "eta" to 0,
+                                                "log" to "Aria2c connection rejected (code 22). Retrying with native downloader..."
+                                            )
+                                        )
+
+                                        val fallbackRequest = YoutubeDLRequest(url)
+                                        fallbackRequest.addOption("-o", outTemplate)
+                                        if (!args.contains("--config-locations")) {
+                                            fallbackRequest.addOption("--config-locations", configFile.absolutePath)
+                                        }
+
+                                        val nonAriaArgs = mutableListOf<String>()
+                                        var skipNext = false
+                                        for (i in args.indices) {
+                                            if (skipNext) {
+                                                skipNext = false
+                                                continue
+                                            }
+                                            val a = args[i]
+                                            if (a == "--downloader" || a == "--external-downloader" || a == "--downloader-args" || a == "--external-downloader-args") {
+                                                skipNext = true
+                                                continue
+                                            }
+                                            if (a.startsWith("--downloader=") || a.startsWith("--external-downloader=") || a.startsWith("--downloader-args=") || a.startsWith("--external-downloader-args=")) {
+                                                continue
+                                            }
+                                            nonAriaArgs.add(a)
+                                        }
+                                        applyOptions(fallbackRequest, nonAriaArgs)
+
+                                        try {
+                                            downloadException = null
+                                            YoutubeDL.getInstance().execute(fallbackRequest, taskId) { progress, etaInSeconds, line ->
+                                                if (cancelledTasks.contains(taskId)) return@execute
+                                                val rawLine = line ?: ""
+                                                val speedMatch = speedRegex.find(rawLine)
+                                                val speed = speedMatch?.groupValues?.getOrNull(1) ?: ""
+                                                emitEvent(
+                                                    mapOf(
+                                                        "taskId" to taskId,
+                                                        "status" to "DOWNLOADING",
+                                                        "progress" to progress.toDouble(),
+                                                        "speed" to speed,
+                                                        "eta" to etaInSeconds,
+                                                        "log" to rawLine
+                                                    )
+                                                )
+                                            }
+                                        } catch (fallbackEx: Exception) {
+                                            downloadException = fallbackEx
+                                        }
+                                    }
+                                }
+
+                                if (downloadException != null) {
+                                    throw downloadException
                                 }
 
                                 if (cancelledTasks.remove(taskId)) {

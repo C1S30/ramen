@@ -23,107 +23,141 @@ class CompletedTaskCard extends StatelessWidget {
     final isFailed = task.isFailed;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isFailed
-              ? AppColors.error.withValues(alpha: 0.5)
+              ? AppColors.error.withValues(alpha: 0.4)
               : AppColors.border,
+          width: 1,
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(6),
                 child: task.thumbnailUrl != null
                     ? Image.network(
                         task.thumbnailUrl!,
-                        width: 72,
-                        height: 48,
+                        width: 50,
+                        height: 34,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(
-                          width: 72,
-                          height: 48,
+                          width: 50,
+                          height: 34,
                           color: AppColors.surfaceElevated,
-                          child: const Icon(Icons.movie, size: 20),
+                          child: const Icon(Icons.movie_outlined, size: 16, color: AppColors.textMuted),
                         ),
                       )
                     : Container(
-                        width: 72,
-                        height: 48,
+                        width: 50,
+                        height: 34,
                         color: AppColors.surfaceElevated,
-                        child: const Icon(Icons.movie, size: 20),
+                        child: const Icon(Icons.movie_outlined, size: 16, color: AppColors.textMuted),
                       ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       task.title,
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppStyles.bodyLarge.copyWith(
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Row(
                       children: [
-                        // Extension Badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isFailed
-                                ? AppColors.error.withValues(alpha: 0.2)
-                                : AppColors.chipBackground,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            isFailed ? 'FAILED' : task.extension.toUpperCase(),
-                            style: AppStyles.monoSmall.copyWith(
-                              fontSize: 10,
-                              color: isFailed
-                                  ? AppColors.error
-                                  : AppColors.textPrimary,
-                              fontWeight: FontWeight.w600,
-                            ),
+                        Text(
+                          isFailed ? 'FAILED' : task.extension.toUpperCase(),
+                          style: AppStyles.monoSmall.copyWith(
+                            fontSize: 10,
+                            color: isFailed ? AppColors.error : AppColors.accentBright,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        if (task.totalBytes != null)
+                        if (task.totalBytes != null && task.totalBytes! > 0) ...[
+                          const SizedBox(width: 6),
+                          Text('•', style: AppStyles.monoSmall.copyWith(fontSize: 10)),
+                          const SizedBox(width: 6),
                           Text(
                             Formatters.formatBytes(task.totalBytes),
-                            style: AppStyles.monoSmall,
+                            style: AppStyles.monoSmall.copyWith(fontSize: 11),
                           ),
+                        ],
+                        if (task.completedAt != null) ...[
+                          const SizedBox(width: 6),
+                          Text('•', style: AppStyles.monoSmall.copyWith(fontSize: 10)),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${task.completedAt!.hour.toString().padLeft(2, '0')}:${task.completedAt!.minute.toString().padLeft(2, '0')}',
+                            style: AppStyles.caption.copyWith(fontSize: 10),
+                          ),
+                        ],
                       ],
                     ),
                   ],
                 ),
               ),
+              // Compact Action Icons
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (!isFailed) ...[
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(),
+                      icon: const Icon(Icons.play_arrow_rounded, size: 20, color: AppColors.textPrimary),
+                      tooltip: 'Play',
+                      onPressed: onOpen,
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(),
+                      icon: const Icon(Icons.share_outlined, size: 16, color: AppColors.textSecondary),
+                      tooltip: 'Share',
+                      onPressed: onShare,
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.all(4),
+                    constraints: const BoxConstraints(),
+                    icon: const Icon(Icons.close_rounded, size: 16, color: AppColors.textMuted),
+                    tooltip: 'Delete',
+                    onPressed: onDelete,
+                  ),
+                ],
+              ),
             ],
           ),
           if (isFailed && task.errorLog != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(6),
+                color: AppColors.error.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 task.errorLog!,
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppStyles.monoSmall.copyWith(
                   color: AppColors.error,
@@ -132,44 +166,6 @@ class CompletedTaskCard extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 12),
-          const Divider(),
-          const SizedBox(height: 8),
-
-          // Action row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Finished ${task.completedAt != null ? "${task.completedAt!.hour.toString().padLeft(2, '0')}:${task.completedAt!.minute.toString().padLeft(2, '0')}" : ""}',
-                style: AppStyles.caption,
-              ),
-              Row(
-                children: [
-                  if (!isFailed) ...[
-                    IconButton(
-                      icon: const Icon(Icons.play_circle_outline_rounded,
-                          size: 20, color: AppColors.textPrimary),
-                      tooltip: 'Open in Media Player',
-                      onPressed: onOpen,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.share_outlined,
-                          size: 18, color: AppColors.textPrimary),
-                      tooltip: 'Share File',
-                      onPressed: onShare,
-                    ),
-                  ],
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline_rounded,
-                        size: 18, color: AppColors.textMuted),
-                    tooltip: 'Delete Task',
-                    onPressed: onDelete,
-                  ),
-                ],
-              ),
-            ],
-          ),
         ],
       ),
     );

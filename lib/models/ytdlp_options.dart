@@ -47,9 +47,9 @@ class YtDlpOptions {
   final String rawCustomArgs;
 
   const YtDlpOptions({
-    this.useAria2c = true,
-    this.aria2Connections = 16,
-    this.concurrentFragments = 16,
+    this.useAria2c = false,
+    this.aria2Connections = 4,
+    this.concurrentFragments = 8,
     this.retries = 10,
     this.rateLimit,
     this.isAudioOnly = false,
@@ -166,6 +166,11 @@ class YtDlpOptions {
         'aria2c',
         '--downloader-args',
         'aria2c:-c -j $aria2Connections -x $aria2Connections -s $aria2Connections -k 1M',
+      ]);
+    } else {
+      args.addAll([
+        '-N',
+        '$concurrentFragments',
       ]);
     }
 

@@ -80,6 +80,35 @@ class SettingsController extends ChangeNotifier {
     _save();
   }
 
+  void updateSettings(AppSettings newSettings) {
+    _settings = newSettings;
+    _save();
+  }
+
+  void updateFromYtDlpOptions(dynamic opts) {
+    _settings = _settings.copyWith(
+      useAria2c: opts.useAria2c as bool?,
+      aria2Threads: opts.aria2Connections as int?,
+      proxy: (opts.proxy as String?) ?? '',
+      rateLimit: (opts.rateLimit as String?) ?? '',
+      userAgent: (opts.userAgent as String?) ?? '',
+      socketTimeout: opts.socketTimeout as int?,
+      forceIpv4: opts.forceIpv4 as bool?,
+      forceIpv6: opts.forceIpv6 as bool?,
+      embedSubtitles: opts.embedSubtitles as bool?,
+      writeAutoSubtitles: opts.writeAutoSubtitles as bool?,
+      subLangs: opts.subLangs as String?,
+      embedThumbnail: opts.embedThumbnail as bool?,
+      embedMetadata: opts.embedMetadata as bool?,
+      embedChapters: opts.embedChapters as bool?,
+      geoBypass: opts.geoBypass as bool?,
+      cookiesFilePath: (opts.cookiesFilePath as String?) ?? '',
+      enableSponsorBlock: opts.enableSponsorBlock as bool?,
+      rawCustomArgs: opts.rawCustomArgs as String?,
+    );
+    _save();
+  }
+
   void _save() {
     _storageService.saveSettings(_settings);
     notifyListeners();

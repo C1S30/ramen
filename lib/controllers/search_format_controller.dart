@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/di/injection.dart';
 import '../../core/utils/url_validator.dart';
@@ -6,18 +7,32 @@ import '../../models/download_task.dart';
 import '../../models/media_resource.dart';
 import '../../models/ytdlp_options.dart';
 import '../../services/native_bridge_service.dart';
+import '../../services/storage_service.dart';
 import '../../services/task_queue_service.dart';
 
 class SearchFormatController extends ChangeNotifier {
   final NativeBridgeService _nativeBridge = getIt<NativeBridgeService>();
   final TaskQueueService _taskQueue = getIt<TaskQueueService>();
+  StreamSubscription? _taskCompletedSubscription;
 
   final TextEditingController urlInputController = TextEditingController();
+
+  SearchFormatController() {
+    final settings = getIt<StorageService>().getSettings();
+    _options = settings.toYtDlpOptions();
+    _taskCompletedSubscription = _taskQueue.onTaskCompleted.listen((_) {
+      clearPreview();
+    });
+  }
 
   bool _isLoading = false;
   String? _errorMessage;
   MediaResource? _currentResource;
   FormatItem? _selectedFormat;
+  FormatItem? _selectedVideoFormat;
+  FormatItem? _selectedAudioFormat;
+  bool _includeVideo = true;
+  bool _includeAudio = true;
   YtDlpOptions _options = const YtDlpOptions();
   final Set<String> _selectedPlaylistEntries = {};
   CommandTemplate _activeTemplate = CommandTemplate.defaultPresets.first;
@@ -27,6 +42,10 @@ class SearchFormatController extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   MediaResource? get currentResource => _currentResource;
   FormatItem? get selectedFormat => _selectedFormat;
+  FormatItem? get selectedVideoFormat => _selectedVideoFormat;
+  FormatItem? get selectedAudioFormat => _selectedAudioFormat;
+  bool get includeVideo => _includeVideo;
+  bool get includeAudio => _includeAudio;
   YtDlpOptions get options => _options;
   bool get isAudioOnly => _options.isAudioOnly;
   Set<String> get selectedPlaylistEntries => _selectedPlaylistEntries;
@@ -73,15 +92,135 @@ class SearchFormatController extends ChangeNotifier {
 
   void setAudioOnly(bool value) {
     _options = _options.copyWith(isAudioOnly: value);
+    if (value) {
+      _includeVideo = false;
+      _includeAudio = true;
+    } else {
+      _includeVideo = true;
+      _includeAudio = true;
+    }
     if (_currentResource != null) {
       _autoSelectDefaultFormat();
     }
     notifyListeners();
   }
 
-  void selectFormat(FormatItem format) {
-    _selectedFormat = format;
+  void setStreamSelectionMode({
+    required bool includeVideo,
+    required bool includeAudio,
+  }) {
+    if (!includeVideo && !includeAudio) return;
+    _includeVideo = includeVideo;
+    _includeAudio = includeAudio;
+    _syncSelectedFormat();
     notifyListeners();
+  }
+
+  void selectFormat(FormatItem format) {
+    if (format.isAudioOnly) {
+      if (_selectedAudioFormat?.formatId == format.formatId &&
+          _includeAudio &&
+          _includeVideo) {
+        _includeAudio = false;
+      } else {
+        _selectedAudioFormat = format;
+        _includeAudio = true;
+      }
+    } else {
+      if (_selectedVideoFormat?.formatId == format.formatId &&
+          _includeVideo &&
+          _includeAudio) {
+        _includeVideo = false;
+      } else {
+        _selectedVideoFormat = format;
+        _includeVideo = true;
+      }
+    }
+    _syncSelectedFormat();
+    notifyListeners();
+  }
+
+  void selectVideoFormat(FormatItem? format) {
+    _selectedVideoFormat = format;
+    if (format != null) _includeVideo = true;
+    _syncSelectedFormat();
+    notifyListeners();
+  }
+
+  void selectAudioFormat(FormatItem? format) {
+    _selectedAudioFormat = format;
+    if (format != null) _includeAudio = true;
+    _syncSelectedFormat();
+    notifyListeners();
+  }
+
+  void toggleIncludeVideo(bool value) {
+    _includeVideo = value;
+    if (!_includeVideo && !_includeAudio) {
+      _includeAudio = true;
+    }
+    _syncSelectedFormat();
+    notifyListeners();
+  }
+
+  void toggleIncludeAudio(bool value) {
+    _includeAudio = value;
+    if (!_includeAudio && !_includeVideo) {
+      _includeVideo = true;
+    }
+    _syncSelectedFormat();
+    notifyListeners();
+  }
+
+  void _syncSelectedFormat() {
+    if (_options.isAudioOnly || (!_includeVideo && _includeAudio)) {
+      final audio = _selectedAudioFormat;
+      if (audio != null) {
+        _selectedFormat = audio;
+      } else {
+        _selectedFormat = FormatItem(
+          formatId: 'bestaudio',
+          ext: _options.audioFormat,
+          isAudioOnly: true,
+        );
+      }
+    } else if (_includeVideo && !_includeAudio) {
+      final video = _selectedVideoFormat;
+      if (video != null) {
+        _selectedFormat = video;
+      } else {
+        _selectedFormat = FormatItem(
+          formatId: 'bestvideo',
+          ext: 'mp4',
+          isVideoOnly: true,
+        );
+      }
+    } else {
+      final video = _selectedVideoFormat;
+      final audio = _selectedAudioFormat;
+
+      if (video != null && audio != null) {
+        final combinedSize = (video.filesize ?? 0) + (audio.filesize ?? 0);
+        _selectedFormat = FormatItem(
+          formatId: '${video.formatId}+${audio.formatId}',
+          ext: video.ext.isNotEmpty ? video.ext : 'mp4',
+          resolution: video.resolution,
+          height: video.height,
+          width: video.width,
+          fps: video.fps,
+          vcodec: video.vcodec,
+          acodec: audio.acodec,
+          filesize: combinedSize > 0 ? combinedSize : null,
+          tbr: (video.tbr ?? 0) + (audio.tbr ?? 0),
+          formatNote: '${video.displayQuality} + ${audio.displayQuality}',
+          isMerged: true,
+        );
+      } else if (video != null) {
+        _selectedFormat = video;
+      } else if (audio != null) {
+        _selectedFormat = audio;
+      }
+    }
   }
 
   void togglePlaylistItem(String id) {
@@ -126,6 +265,8 @@ class SearchFormatController extends ChangeNotifier {
     _errorMessage = null;
     _currentResource = null;
     _selectedFormat = null;
+    _selectedVideoFormat = null;
+    _selectedAudioFormat = null;
     _selectedPlaylistEntries.clear();
     notifyListeners();
 
@@ -150,27 +291,41 @@ class SearchFormatController extends ChangeNotifier {
   void _autoSelectDefaultFormat() {
     if (_currentResource == null || _currentResource!.formats.isEmpty) return;
 
-    if (_options.isAudioOnly) {
-      final audioFormats =
-          _currentResource!.formats.where((f) => f.isAudioOnly).toList();
-      if (audioFormats.isNotEmpty) {
-        audioFormats.sort((a, b) => (b.tbr ?? 0).compareTo(a.tbr ?? 0));
-        _selectedFormat = audioFormats.first;
-      }
-    } else {
-      final videoFormats =
-          _currentResource!.formats.where((f) => !f.isAudioOnly).toList();
-      if (videoFormats.isNotEmpty) {
-        videoFormats.sort((a, b) => (b.height ?? 0).compareTo(a.height ?? 0));
-        _selectedFormat = videoFormats.first;
-      }
+    final audioFormats =
+        _currentResource!.formats.where((f) => f.isAudioOnly).toList();
+    if (audioFormats.isNotEmpty) {
+      audioFormats.sort((a, b) => (b.tbr ?? 0).compareTo(a.tbr ?? 0));
+      _selectedAudioFormat = audioFormats.first;
     }
+
+    final videoFormats =
+        _currentResource!.formats.where((f) => !f.isAudioOnly).toList();
+    if (videoFormats.isNotEmpty) {
+      videoFormats.sort((a, b) => (b.height ?? 0).compareTo(a.height ?? 0));
+      _selectedVideoFormat = videoFormats.first;
+    }
+
+    if (_options.isAudioOnly) {
+      _includeVideo = false;
+      _includeAudio = true;
+    } else {
+      _includeVideo = true;
+      _includeAudio = true;
+    }
+
+    _syncSelectedFormat();
   }
 
   String get previewCommandLine {
     if (_currentResource == null) return '';
-    final chosenFormatId = _selectedFormat?.formatId ?? (_options.isAudioOnly ? 'bestaudio' : 'best');
-    return _options.toCommandLine(_currentResource!.url, chosenFormatId);
+    final chosenFormatId = _selectedFormat?.formatId ??
+        (_options.isAudioOnly ? 'bestaudio' : 'best');
+    final isAudio = _options.isAudioOnly || (!_includeVideo && _includeAudio);
+    final effectiveOptions = _options.copyWith(isAudioOnly: isAudio);
+    return effectiveOptions.toCommandLine(
+      _currentResource!.url,
+      chosenFormatId,
+    );
   }
 
   Future<DownloadTask?> startDownload({String? targetTabId}) async {
@@ -182,9 +337,13 @@ class SearchFormatController extends ChangeNotifier {
           ext: _options.isAudioOnly ? _options.audioFormat : 'mp4',
         );
 
-    final ext = _options.isAudioOnly
+    final isAudio = _options.isAudioOnly || (!_includeVideo && _includeAudio);
+
+    final ext = isAudio
         ? _options.audioFormat
         : (chosen.ext.isNotEmpty ? chosen.ext : 'mp4');
+
+    final effectiveOptions = _options.copyWith(isAudioOnly: isAudio);
 
     final task = DownloadTask(
       id: 'task_${_currentResource!.id}_${DateTime.now().millisecondsSinceEpoch}',
@@ -196,7 +355,7 @@ class SearchFormatController extends ChangeNotifier {
       selectedFormatId: chosen.formatId,
       extension: ext,
       totalBytes: chosen.filesize,
-      commandFlags: _options.buildArgs(formatId: chosen.formatId),
+      commandFlags: effectiveOptions.buildArgs(formatId: chosen.formatId),
       tabId: targetTabId,
     );
 
@@ -205,16 +364,25 @@ class SearchFormatController extends ChangeNotifier {
   }
 
   void reset() {
+    clearPreview();
+  }
+
+  void clearPreview() {
     urlInputController.clear();
     _currentResource = null;
     _selectedFormat = null;
+    _selectedVideoFormat = null;
+    _selectedAudioFormat = null;
     _errorMessage = null;
     _selectedPlaylistEntries.clear();
+    final settings = getIt<StorageService>().getSettings();
+    _options = settings.toYtDlpOptions();
     notifyListeners();
   }
 
   @override
   void dispose() {
+    _taskCompletedSubscription?.cancel();
     urlInputController.dispose();
     super.dispose();
   }

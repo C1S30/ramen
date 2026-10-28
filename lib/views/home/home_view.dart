@@ -22,18 +22,32 @@ class _HomeViewState extends State<HomeView> {
     'https://youtu.be/jNQXAC9IVRw',
   ];
 
-  Future<void> _handleSearch(BuildContext context, SearchFormatController searchCtrl) async {
+  void _navigateToPreview(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PreviewView(
+          onDownloadCompletedNavigation: () {
+            widget.onNavigateTab?.call(1); // Switch to Downloads tab
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleSearch(
+    BuildContext context,
+    SearchFormatController searchCtrl,
+  ) async {
+    final query = searchCtrl.urlInputController.text.trim();
+    if (searchCtrl.currentResource != null &&
+        (query.isEmpty || query == searchCtrl.currentResource!.url)) {
+      _navigateToPreview(context);
+      return;
+    }
+
     final resource = await searchCtrl.inspectUrl();
     if (resource != null && context.mounted) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => PreviewView(
-            onDownloadCompletedNavigation: () {
-              widget.onNavigateTab?.call(1); // Switch to Downloads tab
-            },
-          ),
-        ),
-      );
+      _navigateToPreview(context);
     }
   }
 
@@ -82,6 +96,43 @@ class _HomeViewState extends State<HomeView> {
           ],
         ),
         actions: [
+          if (searchCtrl.currentResource != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: InkWell(
+                onTap: () => _navigateToPreview(context),
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.accent, width: 1),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.smart_display_rounded,
+                        size: 14,
+                        color: AppColors.accentBright,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Preview',
+                        style: AppStyles.monoAccent.copyWith(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           if (downloadCtrl.activeCount > 0)
             Padding(
               padding: const EdgeInsets.only(right: 16),
@@ -89,7 +140,10 @@ class _HomeViewState extends State<HomeView> {
                 onTap: () => widget.onNavigateTab?.call(1),
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.accentMuted,
                     borderRadius: BorderRadius.circular(20),
@@ -97,7 +151,11 @@ class _HomeViewState extends State<HomeView> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.arrow_downward_rounded, size: 14, color: AppColors.accentBright),
+                      const Icon(
+                        Icons.arrow_downward_rounded,
+                        size: 14,
+                        color: AppColors.accentBright,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         '${downloadCtrl.activeCount} active',
@@ -135,16 +193,27 @@ class _HomeViewState extends State<HomeView> {
                 ),
                 const SizedBox(height: 18),
                 Text(
-                  'Media Ingestion Engine',
-                  style: AppStyles.titleMedium.copyWith(fontSize: 20, letterSpacing: -0.5),
+                  'R . A . M . E . N',
+                  style: AppStyles.titleMedium.copyWith(
+                    fontSize: 20,
+                    letterSpacing: -0.5,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Powered by embedded yt-dlp, FFmpeg muxer & aria2c acceleration',
-                  style: AppStyles.caption.copyWith(color: AppColors.textSecondary),
+                  'Built with ❤️ by ToM \nPowered by yt-dlp, FFmpeg muxer & aria2c',
+                  style: AppStyles.caption.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 24),
+
+                // Active Media Preview Resume Banner
+                if (searchCtrl.currentResource != null) ...[
+                  _buildActivePreviewBanner(context, searchCtrl),
+                  const SizedBox(height: 18),
+                ],
 
                 // Core Searchbox Component
                 _buildSearchBox(context, searchCtrl),
@@ -159,8 +228,8 @@ class _HomeViewState extends State<HomeView> {
                   _buildErrorBanner(searchCtrl.errorMessage!),
 
                 // Quick Presets & Links
-                const SizedBox(height: 16),
-                _buildQuickPresets(searchCtrl),
+                // const SizedBox(height: 16),
+                // _buildQuickPresets(searchCtrl),
                 const SizedBox(height: 28),
 
                 // Engine Capability Badges
@@ -173,7 +242,10 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  Widget _buildSearchBox(BuildContext context, SearchFormatController searchCtrl) {
+  Widget _buildSearchBox(
+    BuildContext context,
+    SearchFormatController searchCtrl,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -187,17 +259,29 @@ class _HomeViewState extends State<HomeView> {
         decoration: InputDecoration(
           hintText: 'Paste video, audio, or playlist URL...',
           hintStyle: AppStyles.bodyMedium.copyWith(color: AppColors.textMuted),
-          prefixIcon: const Icon(Icons.search_rounded, color: AppColors.accentBright, size: 20),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: AppColors.accentBright,
+            size: 20,
+          ),
           suffixIcon: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (searchCtrl.urlInputController.text.isNotEmpty)
                 IconButton(
-                  icon: const Icon(Icons.clear_rounded, size: 18, color: AppColors.textMuted),
+                  icon: const Icon(
+                    Icons.clear_rounded,
+                    size: 18,
+                    color: AppColors.textMuted,
+                  ),
                   onPressed: () => searchCtrl.clearUrl(),
                 ),
               IconButton(
-                icon: const Icon(Icons.content_paste_rounded, size: 18, color: AppColors.textSecondary),
+                icon: const Icon(
+                  Icons.content_paste_rounded,
+                  size: 18,
+                  color: AppColors.textSecondary,
+                ),
                 tooltip: 'Paste from clipboard',
                 onPressed: () => _pasteFromClipboard(searchCtrl),
               ),
@@ -205,13 +289,19 @@ class _HomeViewState extends State<HomeView> {
             ],
           ),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildInspectButton(BuildContext context, SearchFormatController searchCtrl) {
+  Widget _buildInspectButton(
+    BuildContext context,
+    SearchFormatController searchCtrl,
+  ) {
     return SizedBox(
       width: double.infinity,
       height: 48,
@@ -219,10 +309,14 @@ class _HomeViewState extends State<HomeView> {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.accent,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           elevation: 2,
         ),
-        onPressed: searchCtrl.isLoading ? null : () => _handleSearch(context, searchCtrl),
+        onPressed: searchCtrl.isLoading
+            ? null
+            : () => _handleSearch(context, searchCtrl),
         child: searchCtrl.isLoading
             ? Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -230,10 +324,16 @@ class _HomeViewState extends State<HomeView> {
                   const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   ),
                   const SizedBox(width: 12),
-                  Text('INSPECTING FORMATS...', style: AppStyles.monoLabel.copyWith(color: Colors.white)),
+                  Text(
+                    'SEARCHING...',
+                    style: AppStyles.monoLabel.copyWith(color: Colors.white),
+                  ),
                 ],
               )
             : Row(
@@ -242,7 +342,8 @@ class _HomeViewState extends State<HomeView> {
                   const Icon(Icons.stream_rounded, size: 18),
                   const SizedBox(width: 8),
                   Text(
-                    'INSPECT & PREVIEW',
+                    // 'SEARCH FOR `${searchCtrl.urlInputController.text.substring(0, 10)}...`',
+                    'SEARCH & PREVIEW',
                     style: AppStyles.monoHeadline.copyWith(
                       color: Colors.white,
                       fontSize: 13,
@@ -266,12 +367,19 @@ class _HomeViewState extends State<HomeView> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 18),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: AppColors.error,
+            size: 18,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               error,
-              style: AppStyles.bodyMedium.copyWith(color: AppColors.textPrimary, fontSize: 12.5),
+              style: AppStyles.bodyMedium.copyWith(
+                color: AppColors.textPrimary,
+                fontSize: 12.5,
+              ),
             ),
           ),
         ],
@@ -281,6 +389,7 @@ class _HomeViewState extends State<HomeView> {
 
   Widget _buildQuickPresets(SearchFormatController searchCtrl) {
     return Column(
+      mainAxisAlignment: MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('DEMO TARGETS', style: AppStyles.caption),
@@ -296,7 +405,10 @@ class _HomeViewState extends State<HomeView> {
               },
               borderRadius: BorderRadius.circular(6),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(6),
@@ -305,7 +417,11 @@ class _HomeViewState extends State<HomeView> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.link_rounded, size: 12, color: AppColors.accentBright),
+                    const Icon(
+                      Icons.link_rounded,
+                      size: 12,
+                      color: AppColors.accentBright,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       url.length > 28 ? '${url.substring(0, 28)}...' : url,
@@ -353,8 +469,154 @@ class _HomeViewState extends State<HomeView> {
           ),
         ),
         const SizedBox(width: 6),
-        Text(label, style: AppStyles.monoSmall.copyWith(fontSize: 10.5, color: AppColors.textSecondary)),
+        Text(
+          label,
+          style: AppStyles.monoSmall.copyWith(
+            fontSize: 10.5,
+            color: AppColors.textSecondary,
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _buildActivePreviewBanner(
+    BuildContext context,
+    SearchFormatController searchCtrl,
+  ) {
+    final res = searchCtrl.currentResource!;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.accentBright, width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accent.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _navigateToPreview(context),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Thumbnail
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceElevated,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(7),
+                    child: res.thumbnail != null
+                        ? Image.network(
+                            res.thumbnail!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.movie_outlined,
+                              size: 24,
+                              color: AppColors.textMuted,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.movie_outlined,
+                            size: 24,
+                            color: AppColors.textMuted,
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // Details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.accent,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'READY TO DOWNLOAD',
+                              style: AppStyles.monoSmall.copyWith(
+                                color: Colors.white,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          if (searchCtrl.selectedFormat != null) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              searchCtrl.selectedFormat!.displayQuality,
+                              style: AppStyles.monoAccent.copyWith(
+                                fontSize: 10.5,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        res.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppStyles.bodyMedium.copyWith(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        res.uploader ?? 'Unknown Channel',
+                        style: AppStyles.caption.copyWith(
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Action Indicator
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentMuted.withValues(alpha: 0.25),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 14,
+                    color: AppColors.accentBright,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
