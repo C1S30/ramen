@@ -6,10 +6,12 @@ import 'package:flutter/services.dart';
 import '../models/media_resource.dart';
 
 class NativeBridgeService {
-  static const MethodChannel _engineChannel =
-      MethodChannel('com.ramen.downloader/engine');
-  static const EventChannel _streamChannel =
-      EventChannel('com.ramen.downloader/download_stream');
+  static const MethodChannel _engineChannel = MethodChannel(
+    'com.ramen.downloader/engine',
+  );
+  static const EventChannel _streamChannel = EventChannel(
+    'com.ramen.downloader/download_stream',
+  );
 
   final StreamController<Map<String, dynamic>> _streamController =
       StreamController<Map<String, dynamic>>.broadcast();
@@ -20,22 +22,27 @@ class NativeBridgeService {
   // Active desktop download processes (taskId -> Process)
   final Map<String, Process> _activeDesktopProcesses = {};
 
+  // Active desktop search processes (searchId -> Process)
+  final Map<String, Process> _activeDesktopSearchProcesses = {};
+  final Set<String> _cancelledSearchIds = {};
+
   NativeBridgeService() {
     _bindStream();
   }
 
   void _bindStream() {
     try {
-      _nativeSubscription = _streamChannel
-          .receiveBroadcastStream()
-          .listen((dynamic rawData) {
-        if (rawData is Map) {
-          final mapped = Map<String, dynamic>.from(rawData);
-          _streamController.add(mapped);
-        }
-      }, onError: (dynamic error) {
-        debugPrint('Download stream error: $error');
-      });
+      _nativeSubscription = _streamChannel.receiveBroadcastStream().listen(
+        (dynamic rawData) {
+          if (rawData is Map) {
+            final mapped = Map<String, dynamic>.from(rawData);
+            _streamController.add(mapped);
+          }
+        },
+        onError: (dynamic error) {
+          debugPrint('Download stream error: $error');
+        },
+      );
     } catch (e) {
       debugPrint('EventChannel setup warning: $e');
     }
@@ -96,18 +103,14 @@ class NativeBridgeService {
   Future<Map<String, String>> getEngineVersions() async {
     if (Platform.isAndroid) {
       try {
-        final res = await _engineChannel
-            .invokeMapMethod<String, String>('getEngineVersions');
+        final res = await _engineChannel.invokeMapMethod<String, String>(
+          'getEngineVersions',
+        );
         if (res != null) return res;
       } catch (e) {
         debugPrint('Android getEngineVersions error: $e');
       }
-      return {
-        'ytdlp': 'N/A',
-        'ffmpeg': 'N/A',
-        'aria2c': 'N/A',
-        'node': 'N/A',
-      };
+      return {'ytdlp': 'N/A', 'ffmpeg': 'N/A', 'aria2c': 'N/A', 'node': 'N/A'};
     }
 
     // Desktop platform: query installed CLI binaries
@@ -117,7 +120,9 @@ class NativeBridgeService {
     String nodeVer = 'Not installed';
 
     try {
-      final ytRes = await Process.run('yt-dlp', ['--version'], runInShell: true);
+      final ytRes = await Process.run('yt-dlp', [
+        '--version',
+      ], runInShell: true);
       if (ytRes.exitCode == 0 && ytRes.stdout.toString().trim().isNotEmpty) {
         ytDlpVer = ytRes.stdout.toString().trim();
       }
@@ -132,7 +137,9 @@ class NativeBridgeService {
     } catch (_) {}
 
     try {
-      final ariaRes = await Process.run('aria2c', ['--version'], runInShell: true);
+      final ariaRes = await Process.run('aria2c', [
+        '--version',
+      ], runInShell: true);
       if (ariaRes.exitCode == 0) {
         final firstLine = ariaRes.stdout.toString().split('\n').first.trim();
         aria2cVer = firstLine.isNotEmpty ? firstLine : 'Available';
@@ -140,8 +147,11 @@ class NativeBridgeService {
     } catch (_) {}
 
     try {
-      final nodeRes = await Process.run('node', ['--version'], runInShell: true);
-      if (nodeRes.exitCode == 0 && nodeRes.stdout.toString().trim().isNotEmpty) {
+      final nodeRes = await Process.run('node', [
+        '--version',
+      ], runInShell: true);
+      if (nodeRes.exitCode == 0 &&
+          nodeRes.stdout.toString().trim().isNotEmpty) {
         nodeVer = nodeRes.stdout.toString().trim();
       }
     } catch (_) {}
@@ -158,8 +168,9 @@ class NativeBridgeService {
   Future<String> updateEngine() async {
     if (Platform.isAndroid) {
       try {
-        final newVersion =
-            await _engineChannel.invokeMethod<String>('updateEngine');
+        final newVersion = await _engineChannel.invokeMethod<String>(
+          'updateEngine',
+        );
         return newVersion ?? 'Updated to latest stable';
       } catch (e) {
         throw Exception('Update failed: $e');
@@ -170,7 +181,9 @@ class NativeBridgeService {
       final res = await Process.run('yt-dlp', ['-U'], runInShell: true);
       final out = res.stdout.toString().trim();
       final err = res.stderr.toString().trim();
-      return out.isNotEmpty ? out : (err.isNotEmpty ? err : 'yt-dlp update executed');
+      return out.isNotEmpty
+          ? out
+          : (err.isNotEmpty ? err : 'yt-dlp update executed');
     } catch (e) {
       throw Exception('Update failed: $e');
     }
@@ -188,24 +201,102 @@ class NativeBridgeService {
     return null;
   }
 
+  /// Syncs background processing and notification settings to the native Android service
+  Future<void> setBackgroundConfig({
+    required bool enableBackgroundProcessing,
+    required bool backgroundNotifications,
+  }) async {
+    if (Platform.isAndroid) {
+      try {
+        await _engineChannel.invokeMethod('setBackgroundConfig', {
+          'enableBackgroundProcessing': enableBackgroundProcessing,
+          'backgroundNotifications': backgroundNotifications,
+        });
+      } catch (e) {
+        debugPrint('Failed to sync background config: $e');
+      }
+    }
+  }
+
+  /// Checks whether Android battery optimizations are ignored for reliable background tasks
+  Future<bool> isIgnoringBatteryOptimizations() async {
+    if (Platform.isAndroid) {
+      try {
+        final res = await _engineChannel.invokeMethod<bool>(
+          'isIgnoringBatteryOptimizations',
+        );
+        return res ?? true;
+      } catch (_) {}
+    }
+    return true;
+  }
+
+  /// Opens the Android system dialog requesting unrestricted battery usage
+  Future<void> requestIgnoreBatteryOptimizations() async {
+    if (Platform.isAndroid) {
+      try {
+        await _engineChannel.invokeMethod('requestIgnoreBatteryOptimizations');
+      } catch (e) {
+        debugPrint('Battery optimization request error: $e');
+      }
+    }
+  }
+
+  /// Cancels an active format/search inspection by searchId
+  Future<void> cancelSearch(String searchId) async {
+    _cancelledSearchIds.add(searchId);
+    if (Platform.isAndroid) {
+      try {
+        await _engineChannel.invokeMethod('cancelSearch', {
+          'searchId': searchId,
+        });
+      } catch (e) {
+        debugPrint('Cancel search error: $e');
+      }
+      return;
+    }
+
+    final proc = _activeDesktopSearchProcesses.remove(searchId);
+    if (proc != null) {
+      if (Platform.isWindows) {
+        try {
+          await Process.run('taskkill', ['/F', '/T', '/PID', '${proc.pid}']);
+        } catch (_) {
+          proc.kill(ProcessSignal.sigkill);
+        }
+      } else {
+        proc.kill(ProcessSignal.sigterm);
+      }
+    }
+  }
+
   /// Inspects formats using yt-dlp ('URL -F' template only)
   Future<MediaResource> getFormats(
     String urlOrQuery, {
     List<String> extraArgs = const [],
+    String? searchId,
   }) async {
     final target = resolveTarget(urlOrQuery);
     if (target.isEmpty) {
       throw Exception('Target URL or search query cannot be empty');
     }
 
+    final effectiveSearchId =
+        searchId ?? 'search_${DateTime.now().millisecondsSinceEpoch}';
+    _cancelledSearchIds.remove(effectiveSearchId);
+
     if (Platform.isAndroid) {
       if (!_isInitialized) {
         await initEngine();
       }
-      final rawOut = await _engineChannel.invokeMethod<String>(
-        'getFormats',
-        {'url': target},
-      );
+      final rawOut = await _engineChannel.invokeMethod<String>('getFormats', {
+        'url': target,
+        'searchId': effectiveSearchId,
+      });
+
+      if (_cancelledSearchIds.remove(effectiveSearchId)) {
+        throw Exception('Search cancelled');
+      }
 
       if (rawOut != null && rawOut.trim().isNotEmpty) {
         return MediaResource.parseOutput(rawOut, target);
@@ -215,12 +306,17 @@ class NativeBridgeService {
     }
 
     // Desktop execution: invoke local yt-dlp using 'URL -F' template only
-    return await _getFormatsViaDesktopCli(target, extraArgs);
+    return await _getFormatsViaDesktopCli(
+      target,
+      extraArgs,
+      effectiveSearchId,
+    );
   }
 
   Future<MediaResource> _getFormatsViaDesktopCli(
     String target,
     List<String> extraArgs,
+    String searchId,
   ) async {
     final configFile = await _getOrCreateConfigFile();
 
@@ -235,18 +331,20 @@ class NativeBridgeService {
         ...extraArgs,
         target,
       ];
-      final jsonRes = await Process.run(
-        'yt-dlp',
-        jsonArgs,
-        runInShell: true,
-        stdoutEncoding: utf8,
-        stderrEncoding: utf8,
-      );
-      if (jsonRes.exitCode == 0 && jsonRes.stdout.toString().trim().isNotEmpty) {
-        return MediaResource.parseOutput(jsonRes.stdout.toString().trim(), target);
+      final jsonOut = await _runCancellableSearchProcess(jsonArgs, searchId);
+      if (jsonOut != null && jsonOut.trim().isNotEmpty) {
+        return MediaResource.parseOutput(jsonOut.trim(), target);
       }
-    } catch (_) {
+    } catch (e) {
+      if (_cancelledSearchIds.remove(searchId) ||
+          e.toString().contains('Search cancelled')) {
+        throw Exception('Search cancelled');
+      }
       // Fallback to table extraction below
+    }
+
+    if (_cancelledSearchIds.remove(searchId)) {
+      throw Exception('Search cancelled');
     }
 
     final cliArgs = [
@@ -257,36 +355,79 @@ class NativeBridgeService {
       ...extraArgs,
     ];
 
-    ProcessResult res;
-    try {
-      res = await Process.run(
-        'yt-dlp',
-        cliArgs,
-        runInShell: true,
-        stdoutEncoding: utf8,
-        stderrEncoding: utf8,
-      );
-    } catch (e) {
-      throw Exception('yt-dlp execution error: $e. Ensure yt-dlp is installed and in PATH.');
+    final rawOut = await _runCancellableSearchProcess(
+      cliArgs,
+      searchId,
+      throwOnError: true,
+    );
+
+    if (_cancelledSearchIds.remove(searchId)) {
+      throw Exception('Search cancelled');
     }
 
-    if (res.exitCode != 0) {
-      final err = res.stderr.toString().trim();
-      final cleanErr = err.isNotEmpty ? err : 'yt-dlp exited with error code ${res.exitCode}';
-      throw Exception(cleanErr);
-    }
-
-    final rawOut = res.stdout.toString().trim();
-    if (rawOut.isEmpty) {
+    if (rawOut == null || rawOut.trim().isEmpty) {
       throw Exception('yt-dlp returned empty output for "$target"');
     }
 
-    return MediaResource.parseOutput(rawOut, target);
+    return MediaResource.parseOutput(rawOut.trim(), target);
+  }
+
+  Future<String?> _runCancellableSearchProcess(
+    List<String> args,
+    String searchId, {
+    bool throwOnError = false,
+  }) async {
+    Process process;
+    try {
+      process = await Process.start('yt-dlp', args, runInShell: true);
+    } catch (e) {
+      if (throwOnError) {
+        throw Exception(
+          'yt-dlp execution error: $e. Ensure yt-dlp is installed and in PATH.',
+        );
+      }
+      return null;
+    }
+
+    _activeDesktopSearchProcesses[searchId] = process;
+    final stdoutBuffer = StringBuffer();
+    final stderrBuffer = StringBuffer();
+
+    final stdoutDone = process.stdout
+        .transform(utf8.decoder)
+        .listen((chunk) => stdoutBuffer.write(chunk))
+        .asFuture<void>();
+    final stderrDone = process.stderr
+        .transform(utf8.decoder)
+        .listen((chunk) => stderrBuffer.write(chunk))
+        .asFuture<void>();
+
+    final exitCode = await process.exitCode;
+    await Future.wait([stdoutDone, stderrDone]);
+    _activeDesktopSearchProcesses.remove(searchId);
+
+    if (_cancelledSearchIds.contains(searchId)) {
+      throw Exception('Search cancelled');
+    }
+
+    if (exitCode != 0) {
+      if (throwOnError) {
+        final err = stderrBuffer.toString().trim();
+        throw Exception(
+          err.isNotEmpty ? err : 'yt-dlp exited with error code $exitCode',
+        );
+      }
+      return null;
+    }
+
+    return stdoutBuffer.toString();
   }
 
   Future<File> _getOrCreateConfigFile() async {
     final tempDir = Directory.systemTemp;
-    final configFile = File('${tempDir.path}${Platform.pathSeparator}yt-dlp.conf');
+    final configFile = File(
+      '${tempDir.path}${Platform.pathSeparator}yt-dlp.conf',
+    );
 
     String nodePath = 'node';
     bool supportsRuntimes = true;
@@ -301,7 +442,12 @@ class NativeBridgeService {
       final whichCmd = Platform.isWindows ? 'where' : 'which';
       final res = await Process.run(whichCmd, ['node'], runInShell: true);
       if (res.exitCode == 0) {
-        final out = res.stdout.toString().trim().split(RegExp(r'[\r\n]+')).first.trim();
+        final out = res.stdout
+            .toString()
+            .trim()
+            .split(RegExp(r'[\r\n]+'))
+            .first
+            .trim();
         if (out.isNotEmpty) {
           nodePath = out;
         }
@@ -331,20 +477,19 @@ class NativeBridgeService {
     required String url,
     required String outDir,
     required List<String> args,
+    String? title,
   }) async {
     if (Platform.isAndroid) {
       if (!_isInitialized) {
         await initEngine();
       }
-      final result = await _engineChannel.invokeMethod<bool>(
-        'startDownload',
-        {
-          'taskId': taskId,
-          'url': url,
-          'outDir': outDir,
-          'args': args,
-        },
-      );
+      final result = await _engineChannel.invokeMethod<bool>('startDownload', {
+        'taskId': taskId,
+        'url': url,
+        'title': title ?? url,
+        'outDir': outDir,
+        'args': args,
+      });
       return result ?? false;
     }
 
@@ -368,7 +513,8 @@ class NativeBridgeService {
       if (outDir.isNotEmpty && Directory(outDir).isAbsolute) {
         targetDir = Directory(outDir);
       } else {
-        final home = Platform.environment['USERPROFILE'] ??
+        final home =
+            Platform.environment['USERPROFILE'] ??
             Platform.environment['HOME'] ??
             Directory.current.path;
         final sub = (outDir.isEmpty || outDir == 'Download/Ramen')
@@ -380,29 +526,34 @@ class NativeBridgeService {
         targetDir.createSync(recursive: true);
       }
 
-      final outTemplate = '${targetDir.path}${Platform.pathSeparator}%(title)s.%(ext)s';
+      final outTemplate =
+          '${targetDir.path}${Platform.pathSeparator}%(title)s.%(ext)s';
       final configFile = await _getOrCreateConfigFile();
       // On desktop, sanitize Android's libaria2c.so back to aria2c binary name
-      final sanitizedArgs = args.map((arg) => arg == 'libaria2c.so' ? 'aria2c' : arg).toList();
+      final sanitizedArgs = args
+          .map((arg) => arg == 'libaria2c.so' ? 'aria2c' : arg)
+          .toList();
       final cliArgs = [
         '-o',
         outTemplate,
         '--newline',
-        if (!sanitizedArgs.contains('--config-locations')) ...['--config-locations', configFile.path],
+        if (!sanitizedArgs.contains('--config-locations')) ...[
+          '--config-locations',
+          configFile.path,
+        ],
         ...sanitizedArgs,
         url,
       ];
 
-      final process = await Process.start(
-        'yt-dlp',
-        cliArgs,
-        runInShell: true,
-      );
+      final process = await Process.start('yt-dlp', cliArgs, runInShell: true);
 
       _activeDesktopProcesses[taskId] = process;
 
       final progressRegex = RegExp(
         r'\[download\]\s+([\d\.]+)%\s+of\s+~?([^\s]+)\s+at\s+([^\s]+)\s+ETA\s+([^\s]+)',
+      );
+      final liveProgressRegex = RegExp(
+        r'\[download\]\s+([^\s]+)\s+at\s+([^\s]+)\s+\(([\d:]+)\)',
       );
 
       final errorLines = <String>[];
@@ -411,37 +562,50 @@ class NativeBridgeService {
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) {
-        final match = progressRegex.firstMatch(line);
-        if (match != null) {
-          final progress = double.tryParse(match.group(1) ?? '') ?? 0.0;
-          final speed = match.group(3) ?? '';
-          final eta = match.group(4) ?? '';
+            final match = progressRegex.firstMatch(line);
+            if (match != null) {
+              final progress = double.tryParse(match.group(1) ?? '') ?? 0.0;
+              final speed = match.group(3) ?? '';
+              final eta = match.group(4) ?? '';
 
-          _streamController.add({
-            'taskId': taskId,
-            'status': 'DOWNLOADING',
-            'progress': progress,
-            'speed': speed,
-            'eta': eta,
-            'log': line,
+              _streamController.add({
+                'taskId': taskId,
+                'status': 'DOWNLOADING',
+                'progress': progress,
+                'speed': speed,
+                'eta': eta,
+                'log': line,
+              });
+            } else {
+              final liveMatch = liveProgressRegex.firstMatch(line);
+              if (liveMatch != null) {
+                final speed = liveMatch.group(2) ?? '';
+                final elapsed = liveMatch.group(3) ?? '';
+                _streamController.add({
+                  'taskId': taskId,
+                  'status': 'DOWNLOADING',
+                  'speed': speed,
+                  'eta': 'LIVE $elapsed',
+                  'log': line,
+                });
+              } else {
+                _streamController.add({
+                  'taskId': taskId,
+                  'status': 'DOWNLOADING',
+                  'log': line,
+                });
+              }
+            }
           });
-        } else {
-          _streamController.add({
-            'taskId': taskId,
-            'status': 'DOWNLOADING',
-            'log': line,
-          });
-        }
-      });
 
       process.stderr
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((errLine) {
-        if (errLine.trim().isNotEmpty) {
-          errorLines.add(errLine.trim());
-        }
-      });
+            if (errLine.trim().isNotEmpty) {
+              errorLines.add(errLine.trim());
+            }
+          });
 
       process.exitCode.then((exitCode) {
         _activeDesktopProcesses.remove(taskId);
@@ -505,6 +669,10 @@ class NativeBridgeService {
       process.kill();
     }
     _activeDesktopProcesses.clear();
+    for (final process in _activeDesktopSearchProcesses.values) {
+      process.kill();
+    }
+    _activeDesktopSearchProcesses.clear();
     _nativeSubscription?.cancel();
     _streamController.close();
   }

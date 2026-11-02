@@ -129,6 +129,76 @@ class SettingsView extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
+            // Background Processing & Service
+            _buildSectionHeader('BACKGROUND PROCESSING'),
+            const SizedBox(height: 10),
+            _buildSettingCard(
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppColors.accent,
+                  title: Text(
+                    'Background Downloading & Searching',
+                    style: AppStyles.bodyLarge,
+                  ),
+                  subtitle: Text(
+                    'Keep searches and downloads running with CPU & Wi-Fi locks when the app is minimized or the screen is off',
+                    style: AppStyles.bodyMedium,
+                  ),
+                  value: settings.enableBackgroundProcessing,
+                  onChanged: (val) =>
+                      settingsCtrl.toggleBackgroundProcessing(val),
+                ),
+                const Divider(),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppColors.accent,
+                  title: Text(
+                    'Background Notifications',
+                    style: AppStyles.bodyLarge,
+                  ),
+                  subtitle: Text(
+                    'Show live progress and completion alerts while Ramen is in the background',
+                    style: AppStyles.bodyMedium,
+                  ),
+                  value: settings.backgroundNotifications,
+                  onChanged: settings.enableBackgroundProcessing
+                      ? (val) => settingsCtrl.toggleBackgroundNotifications(val)
+                      : null,
+                ),
+                const Divider(),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    'Unrestricted Battery Usage',
+                    style: AppStyles.bodyLarge,
+                  ),
+                  subtitle: Text(
+                    settingsCtrl.isIgnoringBatteryOptimizations
+                        ? 'Unrestricted — Android will not throttle background jobs'
+                        : 'Tap to exempt Ramen from Android battery optimization',
+                    style: AppStyles.bodyMedium.copyWith(
+                      color: settingsCtrl.isIgnoringBatteryOptimizations
+                          ? AppColors.success
+                          : AppColors.warning,
+                    ),
+                  ),
+                  trailing: Icon(
+                    settingsCtrl.isIgnoringBatteryOptimizations
+                        ? Icons.verified_rounded
+                        : Icons.battery_saver_rounded,
+                    color: settingsCtrl.isIgnoringBatteryOptimizations
+                        ? AppColors.success
+                        : AppColors.warning,
+                  ),
+                  onTap: settingsCtrl.isIgnoringBatteryOptimizations
+                      ? null
+                      : () => settingsCtrl.requestUnrestrictedBattery(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
             // Format Preferences
             _buildSectionHeader('DEFAULTS'),
             const SizedBox(height: 10),

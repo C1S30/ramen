@@ -55,7 +55,9 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isPaused ? AppColors.warning.withValues(alpha: 0.6) : AppColors.border,
+          color: isPaused
+              ? AppColors.warning.withValues(alpha: 0.6)
+              : AppColors.border,
           width: 1,
         ),
       ),
@@ -78,14 +80,22 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                           width: 54,
                           height: 38,
                           color: AppColors.surfaceElevated,
-                          child: const Icon(Icons.movie_outlined, size: 18, color: AppColors.textMuted),
+                          child: const Icon(
+                            Icons.movie_outlined,
+                            size: 18,
+                            color: AppColors.textMuted,
+                          ),
                         ),
                       )
                     : Container(
                         width: 54,
                         height: 38,
                         color: AppColors.surfaceElevated,
-                        child: const Icon(Icons.movie_outlined, size: 18, color: AppColors.textMuted),
+                        child: const Icon(
+                          Icons.movie_outlined,
+                          size: 18,
+                          color: AppColors.textMuted,
+                        ),
                       ),
               ),
               const SizedBox(width: 10),
@@ -112,7 +122,10 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(width: 6),
-                        Text('•', style: AppStyles.monoSmall.copyWith(fontSize: 10)),
+                        Text(
+                          '•',
+                          style: AppStyles.monoSmall.copyWith(fontSize: 10),
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           task.extension.toUpperCase(),
@@ -122,6 +135,48 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                             fontWeight: FontWeight.w700,
                           ),
                         ),
+                        if (task.isLiveStream) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.accent,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '● LIVE',
+                              style: AppStyles.monoSmall.copyWith(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ] else if (task.isPlaylistBatch) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.accentMuted,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: AppColors.accent),
+                            ),
+                            child: Text(
+                              'PLAYLIST',
+                              style: AppStyles.monoSmall.copyWith(
+                                color: AppColors.accentBright,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ],
@@ -136,7 +191,10 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                     onTap: isPaused ? widget.onResume : widget.onPause,
                     borderRadius: BorderRadius.circular(6),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceElevated,
                         borderRadius: BorderRadius.circular(6),
@@ -145,9 +203,13 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                       child: Row(
                         children: [
                           Icon(
-                            isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                            isPaused
+                                ? Icons.play_arrow_rounded
+                                : Icons.pause_rounded,
                             size: 13,
-                            color: isPaused ? AppColors.accentBright : AppColors.textPrimary,
+                            color: isPaused
+                                ? AppColors.accentBright
+                                : AppColors.textPrimary,
                           ),
                           const SizedBox(width: 3),
                           Text(
@@ -163,11 +225,16 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                     onTap: widget.onCancel,
                     borderRadius: BorderRadius.circular(6),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.error.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: AppColors.error.withValues(alpha: 0.3),
+                        ),
                       ),
                       child: Text(
                         'Cancel',
@@ -189,7 +256,9 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
           ClipRRect(
             borderRadius: BorderRadius.circular(3),
             child: LinearProgressIndicator(
-              value: (task.progress.clamp(0.0, 100.0)) / 100.0,
+              value: (task.isLiveStream && task.progress <= 0 && !isPaused)
+                  ? null
+                  : (task.progress.clamp(0.0, 100.0)) / 100.0,
               backgroundColor: AppColors.surfaceHighlight,
               valueColor: AlwaysStoppedAnimation<Color>(
                 isPaused ? AppColors.warning : AppColors.accent,
@@ -206,9 +275,13 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
               Row(
                 children: [
                   Text(
-                    '${task.progress.toStringAsFixed(1)}%',
+                    task.isLiveStream && task.progress <= 0
+                        ? 'LIVE STREAM'
+                        : '${task.progress.toStringAsFixed(1)}%',
                     style: AppStyles.monoAccent.copyWith(
-                      color: isPaused ? AppColors.warning : AppColors.accentBright,
+                      color: isPaused
+                          ? AppColors.warning
+                          : AppColors.accentBright,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -232,7 +305,10 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                   ),
                   if (task.totalBytes != null && task.totalBytes! > 0) ...[
                     const SizedBox(width: 6),
-                    Text('•', style: AppStyles.monoSmall.copyWith(fontSize: 10)),
+                    Text(
+                      '•',
+                      style: AppStyles.monoSmall.copyWith(fontSize: 10),
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       Formatters.formatBytes(task.totalBytes!),
@@ -248,20 +324,27 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                 onTap: () => setState(() => _showLogs = !_showLogs),
                 borderRadius: BorderRadius.circular(4),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
                   child: Row(
                     children: [
                       Icon(
                         _showLogs ? Icons.terminal_rounded : Icons.code_rounded,
                         size: 13,
-                        color: _showLogs ? AppColors.accentBright : AppColors.textMuted,
+                        color: _showLogs
+                            ? AppColors.accentBright
+                            : AppColors.textMuted,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         _showLogs ? 'Hide' : 'Logs',
                         style: AppStyles.monoSmall.copyWith(
                           fontSize: 10,
-                          color: _showLogs ? AppColors.accentBright : AppColors.textMuted,
+                          color: _showLogs
+                              ? AppColors.accentBright
+                              : AppColors.textMuted,
                         ),
                       ),
                     ],
@@ -285,7 +368,12 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
               ),
               child: task.logs.isEmpty
                   ? Center(
-                      child: Text('Awaiting process logs...', style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted)),
+                      child: Text(
+                        'Awaiting process logs...',
+                        style: AppStyles.monoSmall.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                      ),
                     )
                   : ListView.builder(
                       controller: _logScrollController,

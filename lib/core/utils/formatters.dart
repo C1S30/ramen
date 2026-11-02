@@ -47,4 +47,31 @@ class Formatters {
     if (rawSpeed == null || rawSpeed.isEmpty) return '0.0 KB/s';
     return rawSpeed.trim();
   }
+
+  /// Formats a Unix epoch timestamp (in seconds) into a readable date/time string
+  static String formatReleaseTimestamp(int? epochSeconds) {
+    if (epochSeconds == null || epochSeconds <= 0) return 'Scheduled';
+    final dt = DateTime.fromMillisecondsSinceEpoch(
+      epochSeconds * 1000,
+      isUtc: true,
+    ).toLocal();
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final month = months[dt.month - 1];
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final minute = dt.minute.toString().padLeft(2, '0');
+    return '$month ${dt.day}, $hour:$minute';
+  }
 }

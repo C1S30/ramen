@@ -12,16 +12,39 @@ class SettingsController extends ChangeNotifier {
   Map<String, String> _engineVersions = {};
   bool _isUpdating = false;
   String? _updateMessage;
+  bool _isIgnoringBatteryOptimizations = true;
 
   SettingsController() {
     _settings = _storageService.getSettings();
     loadEngineVersions();
+    _syncBackgroundConfig();
+    refreshBatteryOptimizationStatus();
   }
 
   AppSettings get settings => _settings;
   Map<String, String> get engineVersions => _engineVersions;
   bool get isUpdating => _isUpdating;
   String? get updateMessage => _updateMessage;
+  bool get isIgnoringBatteryOptimizations => _isIgnoringBatteryOptimizations;
+
+  Future<void> _syncBackgroundConfig() async {
+    await _nativeBridge.setBackgroundConfig(
+      enableBackgroundProcessing: _settings.enableBackgroundProcessing,
+      backgroundNotifications: _settings.backgroundNotifications,
+    );
+  }
+
+  Future<void> refreshBatteryOptimizationStatus() async {
+    _isIgnoringBatteryOptimizations = await _nativeBridge
+        .isIgnoringBatteryOptimizations();
+    notifyListeners();
+  }
+
+  Future<void> requestUnrestrictedBattery() async {
+    await _nativeBridge.requestIgnoreBatteryOptimizations();
+    await Future.delayed(const Duration(seconds: 1));
+    await refreshBatteryOptimizationStatus();
+  }
 
   Future<void> loadEngineVersions() async {
     _engineVersions = await _nativeBridge.getEngineVersions();
@@ -62,6 +85,18 @@ class SettingsController extends ChangeNotifier {
 
   void toggleWifiOnly(bool value) {
     _settings.wifiOnly = value;
+    _save();
+  }
+
+  void toggleBackgroundProcessing(bool value) {
+    _settings.enableBackgroundProcessing = value;
+    _syncBackgroundConfig();
+    _save();
+  }
+
+  void toggleBackgroundNotifications(bool value) {
+    _settings.backgroundNotifications = value;
+    _syncBackgroundConfig();
     _save();
   }
 

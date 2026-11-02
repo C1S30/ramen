@@ -31,6 +31,8 @@ class DownloadTask {
   final List<String> logs;
   String? currentPhase;
   String? tabId;
+  final bool isLiveStream;
+  final bool isPlaylistBatch;
 
   DownloadTask({
     required this.id,
@@ -55,6 +57,8 @@ class DownloadTask {
     List<String>? logs,
     this.currentPhase,
     this.tabId,
+    this.isLiveStream = false,
+    this.isPlaylistBatch = false,
   })  : createdAt = createdAt ?? DateTime.now(),
         logs = logs ?? [];
 
@@ -75,9 +79,20 @@ class DownloadTask {
     }
     logs.add(clean);
 
-    if (clean.contains('[download]') || clean.contains('aria2c')) {
+    if (clean.contains('[wait]')) {
+      currentPhase = 'Waiting for scheduled broadcast';
+    } else if (isLiveStream &&
+        (clean.contains('[download]') ||
+            clean.contains('frame=') ||
+            clean.contains('time='))) {
+      currentPhase = 'Recording live broadcast (HLS/FFmpeg)';
+    } else if (clean.contains('[download] Downloading item')) {
+      currentPhase = clean.replaceFirst('[download] ', '');
+    } else if (clean.contains('[download]') || clean.contains('aria2c')) {
       currentPhase = 'Downloading stream (aria2c)';
-    } else if (clean.contains('[Merger]') || clean.contains('ffmpeg') || clean.contains('Muxing')) {
+    } else if (clean.contains('[Merger]') ||
+        clean.contains('ffmpeg') ||
+        clean.contains('Muxing')) {
       currentPhase = 'Multiplexing container (FFmpeg)';
     } else if (clean.contains('[Metadata]') || clean.contains('[Thumbnails]')) {
       currentPhase = 'Embedding metadata & artwork';
@@ -107,6 +122,8 @@ class DownloadTask {
         'commandFlags': commandFlags,
         'errorLog': errorLog,
         'tabId': tabId,
+        'isLiveStream': isLiveStream,
+        'isPlaylistBatch': isPlaylistBatch,
       };
 
   factory DownloadTask.fromJson(Map<dynamic, dynamic> map) {
@@ -141,6 +158,8 @@ class DownloadTask {
           [],
       errorLog: map['errorLog']?.toString(),
       tabId: map['tabId']?.toString(),
+      isLiveStream: map['isLiveStream'] == true,
+      isPlaylistBatch: map['isPlaylistBatch'] == true,
     );
   }
 }

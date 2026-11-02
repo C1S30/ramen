@@ -43,6 +43,13 @@ class YtDlpOptions {
   final bool enableSponsorBlock;
   final List<String> sponsorBlockCategories;
 
+  // Live Stream & Playlist Options
+  final bool liveFromStart;
+  final int? waitForVideoSeconds;
+  final bool hlsUseMpegts;
+  final String? playlistItems;
+  final bool yesPlaylist;
+
   // Unrestricted Raw Arguments
   final String rawCustomArgs;
 
@@ -77,6 +84,11 @@ class YtDlpOptions {
     this.extractorArgs,
     this.enableSponsorBlock = false,
     this.sponsorBlockCategories = const ['sponsor', 'selfpromo', 'interaction'],
+    this.liveFromStart = false,
+    this.waitForVideoSeconds,
+    this.hlsUseMpegts = false,
+    this.playlistItems,
+    this.yesPlaylist = false,
     this.rawCustomArgs = '',
   });
 
@@ -111,6 +123,13 @@ class YtDlpOptions {
     String? extractorArgs,
     bool? enableSponsorBlock,
     List<String>? sponsorBlockCategories,
+    bool? liveFromStart,
+    int? waitForVideoSeconds,
+    bool clearWaitForVideo = false,
+    bool? hlsUseMpegts,
+    String? playlistItems,
+    bool clearPlaylistItems = false,
+    bool? yesPlaylist,
     String? rawCustomArgs,
   }) {
     return YtDlpOptions(
@@ -145,11 +164,23 @@ class YtDlpOptions {
       enableSponsorBlock: enableSponsorBlock ?? this.enableSponsorBlock,
       sponsorBlockCategories:
           sponsorBlockCategories ?? this.sponsorBlockCategories,
+      liveFromStart: liveFromStart ?? this.liveFromStart,
+      waitForVideoSeconds: clearWaitForVideo
+          ? null
+          : (waitForVideoSeconds ?? this.waitForVideoSeconds),
+      hlsUseMpegts: hlsUseMpegts ?? this.hlsUseMpegts,
+      playlistItems: clearPlaylistItems
+          ? null
+          : (playlistItems ?? this.playlistItems),
+      yesPlaylist: yesPlaylist ?? this.yesPlaylist,
       rawCustomArgs: rawCustomArgs ?? this.rawCustomArgs,
     );
   }
 
-  List<String> buildArgs({required String formatId}) {
+  List<String> buildArgs({
+    required String formatId,
+    bool isLiveStream = false,
+  }) {
     final args = <String>[];
 
     // Format selection
@@ -158,7 +189,8 @@ class YtDlpOptions {
     }
 
     // Downloader & multi-thread aria2c
-    if (useAria2c) {
+    // Note: aria2c is not compatible with live HLS/DASH manifests or --live-from-start
+    if (useAria2c && !isLiveStream) {
       args.addAll([
         '-N',
         '$concurrentFragments',
@@ -172,6 +204,36 @@ class YtDlpOptions {
         '-N',
         '$concurrentFragments',
       ]);
+    }
+
+    // Live Stream & Scheduled Broadcast flags
+    if (isLiveStream) {
+      // Prevent FFmpeg code 183 (AVERROR_INVALIDDATA) from corrupted .part files
+      // and transient live HLS stream socket drops
+      args.add('--no-part');
+      if (!liveFromStart) {
+        args.addAll([
+          '--downloader-args',
+          'ffmpeg_i:-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        ]);
+      }
+    }
+    if (liveFromStart) {
+      args.add('--live-from-start');
+    }
+    if (hlsUseMpegts) {
+      args.add('--hls-use-mpegts');
+    }
+    if (waitForVideoSeconds != null && waitForVideoSeconds! > 0) {
+      args.addAll(['--wait-for-video', '$waitForVideoSeconds']);
+    }
+
+    // Playlist flags
+    if (yesPlaylist) {
+      args.add('--yes-playlist');
+    }
+    if (playlistItems != null && playlistItems!.trim().isNotEmpty) {
+      args.addAll(['--playlist-items', playlistItems!.trim()]);
     }
 
     if (retries > 0) {
@@ -209,14 +271,15 @@ class YtDlpOptions {
       args.add('-k');
     }
 
-    // Metadata & Embeds
-    if (embedMetadata) {
+    // Metadata & Embeds (Disable thumbnail/chapter embedding on live streams,
+    // as MPEG-TS / live HLS containers fail FFmpeg post-processing with exit code 183)
+    if (embedMetadata && (!isLiveStream || !hlsUseMpegts)) {
       args.add('--embed-metadata');
     }
-    if (embedThumbnail) {
+    if (embedThumbnail && !isLiveStream) {
       args.add('--embed-thumbnail');
     }
-    if (embedChapters) {
+    if (embedChapters && !isLiveStream) {
       args.add('--embed-chapters');
     }
 
@@ -286,9 +349,13 @@ class YtDlpOptions {
     return args;
   }
 
-  String toCommandLine(String url, String formatId) {
+  String toCommandLine(
+    String url,
+    String formatId, {
+    bool isLiveStream = false,
+  }) {
     final buffer = StringBuffer('yt-dlp');
-    final args = buildArgs(formatId: formatId);
+    final args = buildArgs(formatId: formatId, isLiveStream: isLiveStream);
     for (final arg in args) {
       if (arg.contains(' ') || arg.contains('"')) {
         buffer.write(' "${arg.replaceAll('"', r'\"')}"');

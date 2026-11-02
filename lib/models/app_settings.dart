@@ -7,6 +7,8 @@ class AppSettings {
   int maxConcurrentDownloads;
   bool wifiOnly;
   bool autoUpdateEngine;
+  bool enableBackgroundProcessing;
+  bool backgroundNotifications;
   String activeTemplateId;
   String defaultAudioFormat;
   String defaultVideoContainer;
@@ -36,6 +38,8 @@ class AppSettings {
     this.maxConcurrentDownloads = 3,
     this.wifiOnly = false,
     this.autoUpdateEngine = true,
+    this.enableBackgroundProcessing = true,
+    this.backgroundNotifications = true,
     this.activeTemplateId = 'best_video_mux',
     this.defaultAudioFormat = 'm4a',
     this.defaultVideoContainer = 'mp4',
@@ -64,6 +68,8 @@ class AppSettings {
     int? maxConcurrentDownloads,
     bool? wifiOnly,
     bool? autoUpdateEngine,
+    bool? enableBackgroundProcessing,
+    bool? backgroundNotifications,
     String? activeTemplateId,
     String? defaultAudioFormat,
     String? defaultVideoContainer,
@@ -92,6 +98,10 @@ class AppSettings {
           maxConcurrentDownloads ?? this.maxConcurrentDownloads,
       wifiOnly: wifiOnly ?? this.wifiOnly,
       autoUpdateEngine: autoUpdateEngine ?? this.autoUpdateEngine,
+      enableBackgroundProcessing:
+          enableBackgroundProcessing ?? this.enableBackgroundProcessing,
+      backgroundNotifications:
+          backgroundNotifications ?? this.backgroundNotifications,
       activeTemplateId: activeTemplateId ?? this.activeTemplateId,
       defaultAudioFormat: defaultAudioFormat ?? this.defaultAudioFormat,
       defaultVideoContainer:
@@ -122,6 +132,8 @@ class AppSettings {
         'maxConcurrentDownloads': maxConcurrentDownloads,
         'wifiOnly': wifiOnly,
         'autoUpdateEngine': autoUpdateEngine,
+        'enableBackgroundProcessing': enableBackgroundProcessing,
+        'backgroundNotifications': backgroundNotifications,
         'activeTemplateId': activeTemplateId,
         'defaultAudioFormat': defaultAudioFormat,
         'defaultVideoContainer': defaultVideoContainer,
@@ -155,6 +167,10 @@ class AppSettings {
           (map['maxConcurrentDownloads'] as num?)?.toInt() ?? 3,
       wifiOnly: map['wifiOnly'] as bool? ?? false,
       autoUpdateEngine: map['autoUpdateEngine'] as bool? ?? true,
+      enableBackgroundProcessing:
+          map['enableBackgroundProcessing'] as bool? ?? true,
+      backgroundNotifications:
+          map['backgroundNotifications'] as bool? ?? true,
       activeTemplateId:
           map['activeTemplateId']?.toString() ?? 'best_video_mux',
       defaultAudioFormat: map['defaultAudioFormat']?.toString() ?? 'm4a',

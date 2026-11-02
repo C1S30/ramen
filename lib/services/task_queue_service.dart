@@ -174,6 +174,7 @@ class TaskQueueService {
 
     final effectiveArgs = List<String>.from(toStart.commandFlags);
     if (settings.useAria2c &&
+        !toStart.isLiveStream &&
         !effectiveArgs.contains('--downloader') &&
         !effectiveArgs.contains('--external-downloader')) {
       final threads = settings.aria2Threads;
@@ -191,6 +192,7 @@ class TaskQueueService {
     _nativeBridgeService.startDownload(
       taskId: toStart.id,
       url: toStart.url,
+      title: toStart.title,
       outDir: effectiveDir,
       args: effectiveArgs,
     );

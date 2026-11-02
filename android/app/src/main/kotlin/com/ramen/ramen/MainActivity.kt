@@ -285,6 +285,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        RamenBackgroundService.isActivityInForeground = true
         handleIntent(intent)
         executor.execute {
             try {
@@ -293,6 +294,16 @@ class MainActivity : FlutterActivity() {
                 android.util.Log.w(TAG, "Background pre-initialization notice: ${e.message}")
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        RamenBackgroundService.isActivityInForeground = true
+    }
+
+    override fun onPause() {
+        RamenBackgroundService.isActivityInForeground = false
+        super.onPause()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -423,13 +434,18 @@ class MainActivity : FlutterActivity() {
 
                     "getFormats" -> {
                         val url = call.argument<String>("url")?.trim()
+                        val searchId = call.argument<String>("searchId")?.trim()?.takeIf { it.isNotEmpty() }
+                            ?: "search_${System.currentTimeMillis()}"
 
                         if (url.isNullOrEmpty()) {
                             safeResult.error("INVALID_URL", "Target URL cannot be empty")
                             return@setMethodCallHandler
                         }
 
+                        RamenBackgroundService.onSearchStarted(applicationContext, searchId, url)
+
                         executor.execute {
+                            var succeeded = false
                             try {
                                 ensureEngineInitialized()
                                 val configFile = getOrCreateConfigFile()
@@ -442,9 +458,12 @@ class MainActivity : FlutterActivity() {
                                     jsonRequest.addOption("--dump-single-json")
                                     jsonRequest.addOption("--no-warnings")
                                     jsonRequest.addOption("--flat-playlist")
-                                    val jsonResponse: YoutubeDLResponse = YoutubeDL.getInstance().execute(jsonRequest)
+                                    val jsonResponse: YoutubeDLResponse = YoutubeDL.getInstance().execute(jsonRequest, searchId, null)
                                     jsonOut = jsonResponse.out
                                 } catch (jsonEx: Exception) {
+                                    if (isCancellationException(jsonEx)) {
+                                        throw jsonEx
+                                    }
                                     android.util.Log.w(TAG, "--dump-single-json failed, trying -F fallback: ${jsonEx.message}")
                                 }
 
@@ -453,19 +472,86 @@ class MainActivity : FlutterActivity() {
                                     val tableRequest = YoutubeDLRequest(url)
                                     tableRequest.addOption("--config-locations", configFile.absolutePath)
                                     tableRequest.addOption("-F")
-                                    val tableResponse: YoutubeDLResponse = YoutubeDL.getInstance().execute(tableRequest)
+                                    val tableResponse: YoutubeDLResponse = YoutubeDL.getInstance().execute(tableRequest, searchId, null)
                                     jsonOut = tableResponse.out
                                 }
 
                                 if (jsonOut.isNullOrBlank()) {
                                     safeResult.error("FORMAT_EXTRACTION_FAILED", "yt-dlp returned empty format output for URL")
                                 } else {
+                                    succeeded = true
                                     safeResult.success(jsonOut)
                                 }
                             } catch (e: Exception) {
-                                android.util.Log.e(TAG, "getFormats error: ${e.message}", e)
-                                val cleanError = extractCleanErrorMessage(e)
-                                safeResult.error("FORMAT_EXTRACTION_FAILED", cleanError, e.message)
+                                if (isCancellationException(e)) {
+                                    safeResult.error("SEARCH_CANCELLED", "Search cancelled by user")
+                                } else {
+                                    android.util.Log.e(TAG, "getFormats error: ${e.message}", e)
+                                    val cleanError = extractCleanErrorMessage(e)
+                                    safeResult.error("FORMAT_EXTRACTION_FAILED", cleanError, e.message)
+                                }
+                            } finally {
+                                RamenBackgroundService.onSearchFinished(applicationContext, searchId, succeeded, url)
+                            }
+                        }
+                    }
+
+                    "cancelSearch" -> {
+                        val searchId = call.argument<String>("searchId")?.trim() ?: ""
+                        if (searchId.isEmpty()) {
+                            safeResult.success(false)
+                            return@setMethodCallHandler
+                        }
+                        executor.execute {
+                            try {
+                                YoutubeDL.getInstance().destroyProcessById(searchId)
+                            } catch (e: Exception) {
+                                android.util.Log.w(TAG, "cancelSearch destroyProcessById notice: ${e.message}")
+                            }
+                            RamenBackgroundService.onSearchFinished(applicationContext, searchId, false, "")
+                            safeResult.success(true)
+                        }
+                    }
+
+                    "setBackgroundConfig" -> {
+                        val enabled = call.argument<Boolean>("enableBackgroundProcessing") ?: true
+                        val notifications = call.argument<Boolean>("backgroundNotifications") ?: true
+                        RamenBackgroundService.enableBackgroundProcessing = enabled
+                        RamenBackgroundService.enableBackgroundNotifications = notifications
+                        RamenBackgroundService.syncService(applicationContext)
+                        safeResult.success(true)
+                    }
+
+                    "isIgnoringBatteryOptimizations" -> {
+                        val pm = applicationContext.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+                        val ignoring = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                            pm.isIgnoringBatteryOptimizations(applicationContext.packageName)
+                        } else {
+                            true
+                        }
+                        safeResult.success(ignoring)
+                    }
+
+                    "requestIgnoreBatteryOptimizations" -> {
+                        try {
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                                val pm = applicationContext.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+                                if (!pm.isIgnoringBatteryOptimizations(applicationContext.packageName)) {
+                                    val intent = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                        data = android.net.Uri.parse("package:${applicationContext.packageName}")
+                                    }
+                                    startActivity(intent)
+                                }
+                            }
+                            safeResult.success(true)
+                        } catch (e: Exception) {
+                            android.util.Log.w(TAG, "requestIgnoreBatteryOptimizations fallback: ${e.message}")
+                            try {
+                                val fallbackIntent = Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                startActivity(fallbackIntent)
+                                safeResult.success(true)
+                            } catch (e2: Exception) {
+                                safeResult.error("BATTERY_OPT_ERROR", e2.message)
                             }
                         }
                     }
@@ -473,6 +559,7 @@ class MainActivity : FlutterActivity() {
                     "startDownload" -> {
                         val taskId = call.argument<String>("taskId")?.trim() ?: ""
                         val url = call.argument<String>("url")?.trim() ?: ""
+                        val title = call.argument<String>("title")?.trim()?.takeIf { it.isNotEmpty() } ?: url
                         val outDir = call.argument<String>("outDir")?.trim() ?: ""
                         val args = call.argument<List<String>>("args") ?: emptyList()
 
@@ -483,6 +570,7 @@ class MainActivity : FlutterActivity() {
 
                         activeTasks[taskId] = "DOWNLOADING"
                         cancelledTasks.remove(taskId)
+                        RamenBackgroundService.onDownloadStarted(applicationContext, taskId, title)
                         safeResult.success(true)
 
                         executor.execute {
@@ -527,6 +615,13 @@ class MainActivity : FlutterActivity() {
                                         val rawLine = line ?: ""
                                         val speedMatch = speedRegex.find(rawLine)
                                         val speed = speedMatch?.groupValues?.getOrNull(1) ?: ""
+
+                                        RamenBackgroundService.onDownloadProgress(
+                                            applicationContext,
+                                            taskId,
+                                            progress.toDouble(),
+                                            speed
+                                        )
 
                                         emitEvent(
                                             mapOf(
@@ -614,6 +709,7 @@ class MainActivity : FlutterActivity() {
 
                                 if (cancelledTasks.remove(taskId)) {
                                     activeTasks.remove(taskId)
+                                    RamenBackgroundService.onDownloadFinished(applicationContext, taskId, false, "Cancelled")
                                     emitEvent(
                                         mapOf(
                                             "taskId" to taskId,
@@ -627,6 +723,7 @@ class MainActivity : FlutterActivity() {
                                 }
 
                                 activeTasks.remove(taskId)
+                                RamenBackgroundService.onDownloadFinished(applicationContext, taskId, true)
                                 emitEvent(
                                     mapOf(
                                         "taskId" to taskId,
@@ -654,6 +751,7 @@ class MainActivity : FlutterActivity() {
                             } catch (e: Exception) {
                                 activeTasks.remove(taskId)
                                 if (cancelledTasks.remove(taskId) || isCancellationException(e)) {
+                                    RamenBackgroundService.onDownloadFinished(applicationContext, taskId, false, "Cancelled")
                                     emitEvent(
                                         mapOf(
                                             "taskId" to taskId,
@@ -666,6 +764,7 @@ class MainActivity : FlutterActivity() {
                                 } else {
                                     android.util.Log.e(TAG, "Download failed for task $taskId: ${e.message}", e)
                                     val cleanError = extractCleanErrorMessage(e)
+                                    RamenBackgroundService.onDownloadFinished(applicationContext, taskId, false, cleanError)
                                     emitEvent(
                                         mapOf(
                                             "taskId" to taskId,
@@ -688,6 +787,7 @@ class MainActivity : FlutterActivity() {
 
                         cancelledTasks.add(taskId)
                         activeTasks.remove(taskId)
+                        RamenBackgroundService.onDownloadFinished(applicationContext, taskId, false, "Cancelled")
 
                         executor.execute {
                             try {
@@ -778,14 +878,17 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
-        // Cancel all ongoing active download processes on app termination
-        for (taskId in activeTasks.keys) {
-            try {
-                YoutubeDL.getInstance().destroyProcessById(taskId)
-            } catch (_: Exception) {}
+        RamenBackgroundService.isActivityInForeground = false
+        if (!RamenBackgroundService.enableBackgroundProcessing) {
+            // Cancel ongoing active download processes only when background execution is disabled
+            for (taskId in activeTasks.keys) {
+                try {
+                    YoutubeDL.getInstance().destroyProcessById(taskId)
+                } catch (_: Exception) {}
+            }
+            activeTasks.clear()
+            cancelledTasks.clear()
         }
-        activeTasks.clear()
-        cancelledTasks.clear()
         super.onDestroy()
     }
 }
