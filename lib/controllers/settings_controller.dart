@@ -57,11 +57,35 @@ class SettingsController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final msg = await _nativeBridge.updateEngine();
+      final msg = await _nativeBridge.updateEngine(
+        channel: _settings.ytDlpUpdateChannel,
+      );
       _updateMessage = msg;
       await loadEngineVersions();
     } catch (e) {
       _updateMessage = 'Update failed: $e';
+    } finally {
+      _isUpdating = false;
+      notifyListeners();
+    }
+  }
+
+  void setYtDlpUpdateChannel(String channel) {
+    _settings.ytDlpUpdateChannel = channel;
+    _save();
+  }
+
+  Future<void> refreshSilentCookies() async {
+    _isUpdating = true;
+    _updateMessage = 'Silently syncing WebView cookies & User-Agent...';
+    notifyListeners();
+    try {
+      final ok = await _nativeBridge.refreshSilentCookies();
+      _updateMessage = ok
+          ? 'Silent WebView cookies & User-Agent synced'
+          : 'Silent cookie sync completed';
+    } catch (e) {
+      _updateMessage = 'Cookie sync notice: $e';
     } finally {
       _isUpdating = false;
       notifyListeners();

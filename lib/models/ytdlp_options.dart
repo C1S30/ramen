@@ -17,12 +17,15 @@ class YtDlpOptions {
   // Subtitles & Chapters
   final bool embedSubtitles;
   final bool writeAutoSubtitles;
+  final bool skipAutoTranslatedSubtitles;
   final String subLangs;
   final bool embedChapters;
 
   // Metadata & Thumbnail
   final bool embedThumbnail;
   final bool embedMetadata;
+  final bool cropAudioArtwork;
+  final bool restrictFilenames;
 
   // Network & Proxy
   final String? proxy;
@@ -32,9 +35,11 @@ class YtDlpOptions {
   final bool forceIpv6;
   final List<String> customHeaders;
 
-  // Bypass & Authentication
+  // Bypass, Protocol Compatibility & Authentication
   final bool geoBypass;
   final String? geoBypassCountry;
+  final bool preferProtocolCompatibility;
+  final String? formatSortString;
   final String? cookiesBrowser;
   final String? cookiesFilePath;
   final String? extractorArgs;
@@ -67,18 +72,23 @@ class YtDlpOptions {
     this.keepVideo = false,
     this.embedSubtitles = false,
     this.writeAutoSubtitles = false,
+    this.skipAutoTranslatedSubtitles = true,
     this.subLangs = 'en.*',
     this.embedChapters = true,
     this.embedThumbnail = true,
     this.embedMetadata = true,
+    this.cropAudioArtwork = true,
+    this.restrictFilenames = false,
     this.proxy,
     this.socketTimeout = 30,
     this.userAgent,
-    this.forceIpv4 = false,
+    this.forceIpv4 = true,
     this.forceIpv6 = false,
     this.customHeaders = const [],
     this.geoBypass = true,
     this.geoBypassCountry,
+    this.preferProtocolCompatibility = false,
+    this.formatSortString,
     this.cookiesBrowser,
     this.cookiesFilePath,
     this.extractorArgs,
@@ -106,10 +116,13 @@ class YtDlpOptions {
     bool? keepVideo,
     bool? embedSubtitles,
     bool? writeAutoSubtitles,
+    bool? skipAutoTranslatedSubtitles,
     String? subLangs,
     bool? embedChapters,
     bool? embedThumbnail,
     bool? embedMetadata,
+    bool? cropAudioArtwork,
+    bool? restrictFilenames,
     String? proxy,
     int? socketTimeout,
     String? userAgent,
@@ -118,6 +131,8 @@ class YtDlpOptions {
     List<String>? customHeaders,
     bool? geoBypass,
     String? geoBypassCountry,
+    bool? preferProtocolCompatibility,
+    String? formatSortString,
     String? cookiesBrowser,
     String? cookiesFilePath,
     String? extractorArgs,
@@ -146,10 +161,14 @@ class YtDlpOptions {
       keepVideo: keepVideo ?? this.keepVideo,
       embedSubtitles: embedSubtitles ?? this.embedSubtitles,
       writeAutoSubtitles: writeAutoSubtitles ?? this.writeAutoSubtitles,
+      skipAutoTranslatedSubtitles:
+          skipAutoTranslatedSubtitles ?? this.skipAutoTranslatedSubtitles,
       subLangs: subLangs ?? this.subLangs,
       embedChapters: embedChapters ?? this.embedChapters,
       embedThumbnail: embedThumbnail ?? this.embedThumbnail,
       embedMetadata: embedMetadata ?? this.embedMetadata,
+      cropAudioArtwork: cropAudioArtwork ?? this.cropAudioArtwork,
+      restrictFilenames: restrictFilenames ?? this.restrictFilenames,
       proxy: proxy ?? this.proxy,
       socketTimeout: socketTimeout ?? this.socketTimeout,
       userAgent: userAgent ?? this.userAgent,
@@ -158,6 +177,9 @@ class YtDlpOptions {
       customHeaders: customHeaders ?? this.customHeaders,
       geoBypass: geoBypass ?? this.geoBypass,
       geoBypassCountry: geoBypassCountry ?? this.geoBypassCountry,
+      preferProtocolCompatibility:
+          preferProtocolCompatibility ?? this.preferProtocolCompatibility,
+      formatSortString: formatSortString ?? this.formatSortString,
       cookiesBrowser: cookiesBrowser ?? this.cookiesBrowser,
       cookiesFilePath: cookiesFilePath ?? this.cookiesFilePath,
       extractorArgs: extractorArgs ?? this.extractorArgs,
@@ -177,22 +199,68 @@ class YtDlpOptions {
     );
   }
 
+  /// Builds arguments used during URL/Playlist inspection (getFormats)
+  /// so signed URLs are negotiated under the same IP family, proxy, cookies, and UA as the download.
+  List<String> buildSearchArgs() {
+    final args = <String>[];
+    if (restrictFilenames) {
+      args.add('--restrict-filenames');
+    }
+    if (forceIpv4) {
+      args.add('-4');
+    } else if (forceIpv6) {
+      args.add('-6');
+    }
+    if (proxy != null && proxy!.trim().isNotEmpty) {
+      args.addAll(['--proxy', proxy!.trim()]);
+    }
+    if (userAgent != null && userAgent!.trim().isNotEmpty) {
+      args.addAll(['--add-header', 'User-Agent:${userAgent!.trim()}']);
+    }
+    if (cookiesBrowser != null && cookiesBrowser!.trim().isNotEmpty) {
+      args.addAll(['--cookies-from-browser', cookiesBrowser!.trim()]);
+    } else if (cookiesFilePath != null && cookiesFilePath!.trim().isNotEmpty) {
+      args.addAll(['--cookies', cookiesFilePath!.trim()]);
+    }
+    if (preferProtocolCompatibility) {
+      args.addAll(['-S', 'proto,vcodec:h264,ext']);
+    } else if (formatSortString != null && formatSortString!.trim().isNotEmpty) {
+      args.addAll(['-S', formatSortString!.trim()]);
+    }
+    if (geoBypass) {
+      args.add('--geo-bypass');
+    }
+    return args;
+  }
+
   List<String> buildArgs({
     required String formatId,
     bool isLiveStream = false,
   }) {
-    final args = <String>[];
+    final args = <String>[
+      '--no-mtime',
+      '--no-embed-info-json',
+    ];
 
-    // Format selection
+    if (restrictFilenames) {
+      args.add('--restrict-filenames');
+    }
+
+    // Format selection & Seal Protocol Compatibility Sorting (-S proto,vcodec:h264,ext)
     if (formatId.isNotEmpty) {
       args.addAll(['-f', formatId]);
     }
+    if (preferProtocolCompatibility) {
+      args.addAll(['-S', 'proto,vcodec:h264,ext']);
+    } else if (formatSortString != null && formatSortString!.trim().isNotEmpty) {
+      args.addAll(['-S', formatSortString!.trim()]);
+    }
 
-    // Downloader & multi-thread aria2c
+    // Downloader & multi-thread aria2c vs native --concurrent-fragments
     // Note: aria2c is not compatible with live HLS/DASH manifests or --live-from-start
     if (useAria2c && !isLiveStream) {
       args.addAll([
-        '-N',
+        '--concurrent-fragments',
         '$concurrentFragments',
         '--downloader',
         'aria2c',
@@ -201,7 +269,7 @@ class YtDlpOptions {
       ]);
     } else {
       args.addAll([
-        '-N',
+        '--concurrent-fragments',
         '$concurrentFragments',
       ]);
     }
@@ -231,6 +299,8 @@ class YtDlpOptions {
     // Playlist flags
     if (yesPlaylist) {
       args.add('--yes-playlist');
+    } else if (playlistItems == null || playlistItems!.trim().isEmpty) {
+      args.add('--no-playlist');
     }
     if (playlistItems != null && playlistItems!.trim().isNotEmpty) {
       args.addAll(['--playlist-items', playlistItems!.trim()]);
@@ -249,7 +319,7 @@ class YtDlpOptions {
       args.addAll(['--limit-rate', rateLimit!.trim()]);
     }
 
-    // Audio extraction & quality
+    // Audio extraction, quality & Seal ID3/MP4 metadata parsing
     if (isAudioOnly) {
       args.addAll([
         '-x',
@@ -258,12 +328,36 @@ class YtDlpOptions {
         '--audio-quality',
         audioQuality,
       ]);
+      if (embedMetadata) {
+        args.addAll([
+          '--parse-metadata',
+          '%(release_year,upload_date)s:%(meta_date)s',
+          '--parse-metadata',
+          '%(album,playlist,title)s:%(meta_album)s',
+          '--parse-metadata',
+          '%(track_number,playlist_index)d:%(meta_track)s',
+        ]);
+      }
+      if (embedThumbnail && !isLiveStream) {
+        args.addAll(['--convert-thumbnails', 'jpg']);
+        if (cropAudioArtwork) {
+          args.addAll([
+            '--ppa',
+            "ffmpeg: -c:v mjpeg -vf crop=\"'if(gt(ih,iw),iw,ih)':'if(gt(iw,ih),ih,iw)'\"",
+          ]);
+        }
+      }
     } else {
       if (videoRecodeFormat != null && videoRecodeFormat!.isNotEmpty) {
         args.addAll(['--recode-video', videoRecodeFormat!]);
       }
       if (remuxContainer != null && remuxContainer!.isNotEmpty) {
-        args.addAll(['--remux-video', remuxContainer!]);
+        args.addAll([
+          '--remux-video',
+          remuxContainer!,
+          '--merge-output-format',
+          remuxContainer!,
+        ]);
       }
     }
 
@@ -279,15 +373,18 @@ class YtDlpOptions {
     if (embedThumbnail && !isLiveStream) {
       args.add('--embed-thumbnail');
     }
-    if (embedChapters && !isLiveStream) {
+    if (embedChapters && !isLiveStream && !isAudioOnly) {
       args.add('--embed-chapters');
     }
 
-    // Subtitles
+    // Subtitles (with Seal's youtube:skip=translated_subs optimization)
     if (embedSubtitles) {
       args.add('--embed-subs');
       if (writeAutoSubtitles) {
         args.add('--write-auto-subs');
+        if (skipAutoTranslatedSubtitles) {
+          args.addAll(['--extractor-args', 'youtube:skip=translated_subs']);
+        }
       } else {
         args.add('--write-subs');
       }
@@ -304,7 +401,12 @@ class YtDlpOptions {
       args.addAll(['--socket-timeout', '$socketTimeout']);
     }
     if (userAgent != null && userAgent!.trim().isNotEmpty) {
-      args.addAll(['--user-agent', userAgent!.trim()]);
+      args.addAll([
+        '--user-agent',
+        userAgent!.trim(),
+        '--add-header',
+        'User-Agent:${userAgent!.trim()}',
+      ]);
     }
     if (forceIpv4) args.add('-4');
     if (forceIpv6) args.add('-6');

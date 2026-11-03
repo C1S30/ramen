@@ -5,6 +5,7 @@ import '../core/constants/app_styles.dart';
 import '../core/di/injection.dart';
 import '../controllers/download_controller.dart';
 import '../controllers/search_format_controller.dart';
+import '../models/download_task.dart';
 import '../services/native_bridge_service.dart';
 import 'downloads/downloads_view.dart';
 import 'home/home_view.dart';
@@ -85,14 +86,19 @@ class _RootNavigationViewState extends State<RootNavigationView>
   Widget build(BuildContext context) {
     final downloadCtrl = context.watch<DownloadController>();
     final searchCtrl = context.watch<SearchFormatController>();
-    final activeCount = downloadCtrl.activeCount;
+    final activeDownloads = downloadCtrl.allTasks
+        .where((t) => t.isActive)
+        .toList();
+    final activeCount = activeDownloads.length;
+    final isDownloading = activeCount > 0;
     final isSearching = searchCtrl.isLoading;
     final hasUnreadSearch =
         !isSearching &&
         searchCtrl.currentResource != null &&
         searchCtrl.hasUnreadSearchResult;
-    final showBackgroundSearchBanner =
+    final showSearchBanner =
         _currentIndex != 0 && (isSearching || hasUnreadSearch);
+    final showActivityBanner = isDownloading || showSearchBanner;
 
     final List<Widget> pages = [
       HomeView(
@@ -108,16 +114,16 @@ class _RootNavigationViewState extends State<RootNavigationView>
       body: Column(
         children: [
           Expanded(
-            child: IndexedStack(
-              index: _currentIndex,
-              children: pages,
-            ),
+            child: IndexedStack(index: _currentIndex, children: pages),
           ),
-          if (showBackgroundSearchBanner)
-            _buildBackgroundSearchBanner(
+          if (showActivityBanner)
+            _buildBackgroundActivityBanner(
               context,
               searchCtrl,
+              downloadCtrl,
+              activeDownloads: activeDownloads,
               isSearching: isSearching,
+              showSearchBanner: showSearchBanner,
             ),
         ],
       ),
@@ -141,9 +147,15 @@ class _RootNavigationViewState extends State<RootNavigationView>
             }),
             iconTheme: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.selected)) {
-                return const IconThemeData(color: AppColors.accentBright, size: 22);
+                return const IconThemeData(
+                  color: AppColors.accentBright,
+                  size: 22,
+                );
               }
-              return const IconThemeData(color: AppColors.textSecondary, size: 22);
+              return const IconThemeData(
+                color: AppColors.textSecondary,
+                size: 22,
+              );
             }),
           ),
           child: NavigationBar(
@@ -153,15 +165,17 @@ class _RootNavigationViewState extends State<RootNavigationView>
               NavigationDestination(
                 icon: Badge(
                   isLabelVisible: isSearching || hasUnreadSearch,
-                  backgroundColor:
-                      isSearching ? AppColors.warning : AppColors.success,
+                  backgroundColor: isSearching
+                      ? AppColors.warning
+                      : AppColors.success,
                   label: Text(isSearching ? '•••' : '1'),
                   child: const Icon(Icons.search_rounded),
                 ),
                 selectedIcon: Badge(
                   isLabelVisible: isSearching || hasUnreadSearch,
-                  backgroundColor:
-                      isSearching ? AppColors.warning : AppColors.success,
+                  backgroundColor: isSearching
+                      ? AppColors.warning
+                      : AppColors.success,
                   label: Text(isSearching ? '•••' : '1'),
                   child: const Icon(Icons.search_rounded),
                 ),
@@ -199,12 +213,21 @@ class _RootNavigationViewState extends State<RootNavigationView>
     );
   }
 
-  Widget _buildBackgroundSearchBanner(
+  Widget _buildBackgroundActivityBanner(
     BuildContext context,
-    SearchFormatController searchCtrl, {
+    SearchFormatController searchCtrl,
+    DownloadController downloadCtrl, {
+    required List<DownloadTask> activeDownloads,
     required bool isSearching,
+    required bool showSearchBanner,
   }) {
-    final query = searchCtrl.activeSearchQuery ??
+    final isDownloading = activeDownloads.isNotEmpty;
+    final primaryTask = isDownloading ? activeDownloads.first : null;
+    final downloadProgress = primaryTask != null
+        ? primaryTask.progress.clamp(0.0, 100.0)
+        : 0.0;
+    final query =
+        searchCtrl.activeSearchQuery ??
         searchCtrl.urlInputController.text.trim();
     final resource = searchCtrl.currentResource;
 
@@ -215,7 +238,7 @@ class _RootNavigationViewState extends State<RootNavigationView>
         color: AppColors.surfaceElevated,
         border: Border(
           top: BorderSide(
-            color: isSearching
+            color: (isDownloading || isSearching)
                 ? AppColors.accent.withValues(alpha: 0.6)
                 : AppColors.success.withValues(alpha: 0.6),
             width: 1,
@@ -224,7 +247,20 @@ class _RootNavigationViewState extends State<RootNavigationView>
       ),
       child: Row(
         children: [
-          if (isSearching)
+          if (isDownloading)
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                value: downloadProgress > 0 && downloadProgress < 100
+                    ? downloadProgress / 100.0
+                    : null,
+                strokeWidth: 2.2,
+                color: AppColors.accentBright,
+                backgroundColor: AppColors.border,
+              ),
+            )
+          else if (isSearching)
             const SizedBox(
               width: 16,
               height: 16,
@@ -246,22 +282,28 @@ class _RootNavigationViewState extends State<RootNavigationView>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  isSearching
-                      ? 'SEARCHING IN BACKGROUND'
-                      : 'BACKGROUND SEARCH READY',
+                  isDownloading
+                      ? 'DOWNLOADING${activeDownloads.length > 1 ? ' (${activeDownloads.length})' : ''} • ${downloadProgress.toStringAsFixed(1)}%${primaryTask!.speed.isNotEmpty ? ' • ${primaryTask.speed}' : ''}${primaryTask.eta.isNotEmpty && primaryTask.eta != '0' ? ' • ETA ${primaryTask.eta}' : ''}'
+                      : (isSearching ? 'SEARCHING...' : 'SEARCH COMPLETED'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: AppStyles.monoSmall.copyWith(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
-                    color: isSearching
+                    color: (isDownloading || isSearching)
                         ? AppColors.accentBright
                         : AppColors.success,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  isSearching
-                      ? (query.isNotEmpty ? query : 'Inspecting media stream...')
-                      : (resource?.title ?? 'Media ready to preview'),
+                  isDownloading
+                      ? primaryTask!.title
+                      : (isSearching
+                            ? (query.isNotEmpty
+                                  ? query
+                                  : 'Inspecting media stream...')
+                            : (resource?.title ?? 'Media ready to preview')),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppStyles.bodyMedium.copyWith(
@@ -269,16 +311,81 @@ class _RootNavigationViewState extends State<RootNavigationView>
                     fontSize: 12,
                   ),
                 ),
+                if (isDownloading) ...[
+                  const SizedBox(height: 5),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: downloadProgress > 0 && downloadProgress < 100
+                          ? downloadProgress / 100.0
+                          : null,
+                      minHeight: 3,
+                      backgroundColor: AppColors.border,
+                      color: AppColors.accentBright,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
           const SizedBox(width: 8),
-          if (isSearching)
+          if (isDownloading) ...[
+            TextButton(
+              onPressed: () => downloadCtrl.cancelTask(primaryTask!.id),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.error,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 6,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                'CANCEL',
+                style: AppStyles.monoSmall.copyWith(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 10.5,
+                ),
+              ),
+            ),
+            if (_currentIndex != 1) ...[
+              const SizedBox(width: 4),
+              ElevatedButton(
+                onPressed: () => _onTabSelected(1),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.accent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                child: Text(
+                  'QUEUE',
+                  style: AppStyles.monoSmall.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 10.5,
+                  ),
+                ),
+              ),
+            ],
+          ] else if (isSearching)
             TextButton(
               onPressed: () => searchCtrl.cancelSearch(),
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.error,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),

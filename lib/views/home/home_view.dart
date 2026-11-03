@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_styles.dart';
-import '../../controllers/download_controller.dart';
 import '../../controllers/search_format_controller.dart';
 import '../preview/preview_view.dart';
 
@@ -18,11 +17,6 @@ class HomeView extends StatefulWidget {
 }
 
 class _HomeViewState extends State<HomeView> {
-  final List<String> _quickLinks = [
-    'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    'https://youtu.be/jNQXAC9IVRw',
-  ];
-
   void _navigateToPreview(BuildContext context) {
     context.read<SearchFormatController>().markSearchResultRead();
     Navigator.of(context).push(
@@ -64,7 +58,6 @@ class _HomeViewState extends State<HomeView> {
   @override
   Widget build(BuildContext context) {
     final searchCtrl = context.watch<SearchFormatController>();
-    final downloadCtrl = context.watch<DownloadController>();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -97,7 +90,7 @@ class _HomeViewState extends State<HomeView> {
         actions: [
           if (searchCtrl.currentResource != null)
             Padding(
-              padding: const EdgeInsets.only(right: 10),
+              padding: const EdgeInsets.only(right: 16),
               child: InkWell(
                 onTap: () => _navigateToPreview(context),
                 borderRadius: BorderRadius.circular(20),
@@ -126,39 +119,6 @@ class _HomeViewState extends State<HomeView> {
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          if (downloadCtrl.activeCount > 0)
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: InkWell(
-                onTap: () => widget.onNavigateTab?.call(1),
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentMuted,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.accent, width: 1),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.arrow_downward_rounded,
-                        size: 14,
-                        color: AppColors.accentBright,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${downloadCtrl.activeCount} active',
-                        style: AppStyles.monoAccent.copyWith(fontSize: 11),
                       ),
                     ],
                   ),
@@ -333,7 +293,7 @@ class _HomeViewState extends State<HomeView> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          'SEARCHING IN BACKGROUND...',
+                          'SEARCHING...',
                           style: AppStyles.monoLabel.copyWith(
                             color: Colors.white,
                             fontSize: 12,
@@ -454,56 +414,6 @@ class _HomeViewState extends State<HomeView> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildQuickPresets(SearchFormatController searchCtrl) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.start,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('DEMO TARGETS', style: AppStyles.caption),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _quickLinks.map((url) {
-            return InkWell(
-              onTap: () {
-                searchCtrl.setUrl(url);
-                _handleSearch(context, searchCtrl);
-              },
-              borderRadius: BorderRadius.circular(6),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.link_rounded,
-                      size: 12,
-                      color: AppColors.accentBright,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      url.length > 28 ? '${url.substring(0, 28)}...' : url,
-                      style: AppStyles.monoSmall.copyWith(fontSize: 10),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
     );
   }
 

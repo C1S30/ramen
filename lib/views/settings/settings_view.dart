@@ -251,6 +251,127 @@ class SettingsView extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
+            // 403 Forbidden & Seal Anti-Block Measures
+            _buildSectionHeader('403 FORBIDDEN & BOT-CHECK BYPASS'),
+            const SizedBox(height: 10),
+            _buildSettingCard(
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text('yt-dlp Update Channel', style: AppStyles.bodyLarge),
+                  subtitle: Text(
+                    'Nightly builds include the latest YouTube player & nsig fixes',
+                    style: AppStyles.caption,
+                  ),
+                  trailing: DropdownButton<String>(
+                    dropdownColor: AppColors.surfaceElevated,
+                    value: settings.ytDlpUpdateChannel,
+                    underline: const SizedBox(),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'nightly',
+                        child: Text('NIGHTLY'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'stable',
+                        child: Text('STABLE'),
+                      ),
+                    ],
+                    style: AppStyles.monoLabel,
+                    onChanged: (val) {
+                      if (val != null) {
+                        settingsCtrl.setYtDlpUpdateChannel(val);
+                      }
+                    },
+                  ),
+                ),
+                const Divider(),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    'Silent WebView Cookie & UA Engine',
+                    style: AppStyles.bodyLarge,
+                  ),
+                  subtitle: Text(
+                    'Harvests session cookies & matching User-Agent silently in the background without opening a browser popup',
+                    style: AppStyles.caption,
+                  ),
+                  trailing: TextButton(
+                    onPressed: settingsCtrl.isUpdating
+                        ? null
+                        : () => settingsCtrl.refreshSilentCookies(),
+                    child: Text('SYNC NOW', style: AppStyles.monoAccent),
+                  ),
+                ),
+                const Divider(),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppColors.accent,
+                  title: Text('Force IPv4 (-4)', style: AppStyles.bodyLarge),
+                  subtitle: Text(
+                    'Prevents IPv6/IPv4 signed URL mismatches that trigger HTTP 403',
+                    style: AppStyles.caption,
+                  ),
+                  value: settings.forceIpv4,
+                  onChanged: (val) => settingsCtrl.updateSettings(
+                    settings.copyWith(forceIpv4: val, forceIpv6: false),
+                  ),
+                ),
+                const Divider(),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppColors.accent,
+                  title: Text(
+                    'Protocol Compatibility (-S proto,vcodec:h264,ext)',
+                    style: AppStyles.bodyLarge,
+                  ),
+                  subtitle: Text(
+                    'Prefers direct HTTPS streams over fragmented DASH/HLS segments',
+                    style: AppStyles.caption,
+                  ),
+                  value: settings.preferProtocolCompatibility,
+                  onChanged: (val) => settingsCtrl.updateSettings(
+                    settings.copyWith(preferProtocolCompatibility: val),
+                  ),
+                ),
+                const Divider(),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppColors.accent,
+                  title: Text(
+                    'Square Audio Cover Art Crop',
+                    style: AppStyles.bodyLarge,
+                  ),
+                  subtitle: Text(
+                    'Converts WebP thumbnails to JPEG and crops 1:1 album artwork',
+                    style: AppStyles.caption,
+                  ),
+                  value: settings.cropAudioArtwork,
+                  onChanged: (val) => settingsCtrl.updateSettings(
+                    settings.copyWith(cropAudioArtwork: val),
+                  ),
+                ),
+                const Divider(),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppColors.accent,
+                  title: Text(
+                    'Restrict Filenames to ASCII',
+                    style: AppStyles.bodyLarge,
+                  ),
+                  subtitle: Text(
+                    'Strips special characters & spaces alongside 200-byte title truncation',
+                    style: AppStyles.caption,
+                  ),
+                  value: settings.restrictFilenames,
+                  onChanged: (val) => settingsCtrl.updateSettings(
+                    settings.copyWith(restrictFilenames: val),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
             // Advanced yt-dlp Engine Options (Pro)
             _buildSectionHeader('ADVANCED YT-DLP CONFIGURATION (PRO)'),
             const SizedBox(height: 10),

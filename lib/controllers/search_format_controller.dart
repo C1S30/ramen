@@ -443,6 +443,7 @@ class SearchFormatController extends ChangeNotifier {
     try {
       final resource = await _nativeBridge.getFormats(
         query,
+        extraArgs: _options.buildSearchArgs(),
         searchId: searchId,
       );
       if (_activeSearchId != searchId) {

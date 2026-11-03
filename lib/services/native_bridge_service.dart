@@ -164,29 +164,49 @@ class NativeBridgeService {
     };
   }
 
-  /// Triggers update of the yt-dlp binary
-  Future<String> updateEngine() async {
+  /// Triggers update of the yt-dlp binary on the chosen release channel ('nightly' or 'stable')
+  Future<String> updateEngine({String channel = 'nightly'}) async {
     if (Platform.isAndroid) {
       try {
         final newVersion = await _engineChannel.invokeMethod<String>(
           'updateEngine',
+          {'channel': channel},
         );
-        return newVersion ?? 'Updated to latest stable';
+        return newVersion ?? 'Updated to latest $channel';
       } catch (e) {
         throw Exception('Update failed: $e');
       }
     }
 
     try {
-      final res = await Process.run('yt-dlp', ['-U'], runInShell: true);
+      final updateArgs = channel == 'nightly'
+          ? ['--update-to', 'nightly']
+          : ['-U'];
+      final res = await Process.run('yt-dlp', updateArgs, runInShell: true);
       final out = res.stdout.toString().trim();
       final err = res.stderr.toString().trim();
       return out.isNotEmpty
           ? out
-          : (err.isNotEmpty ? err : 'yt-dlp update executed');
+          : (err.isNotEmpty ? err : 'yt-dlp update ($channel) executed');
     } catch (e) {
       throw Exception('Update failed: $e');
     }
+  }
+
+  /// Silently refreshes WebView cookies + User-Agent in the background (Android)
+  Future<bool> refreshSilentCookies([
+    String url = 'https://www.youtube.com',
+  ]) async {
+    if (Platform.isAndroid) {
+      try {
+        final res = await _engineChannel.invokeMethod<bool>(
+          'refreshSilentCookies',
+          {'url': url},
+        );
+        return res ?? false;
+      } catch (_) {}
+    }
+    return false;
   }
 
   /// Retrieves any URL shared to the app via Android ACTION_SEND intent
@@ -292,6 +312,7 @@ class NativeBridgeService {
       final rawOut = await _engineChannel.invokeMethod<String>('getFormats', {
         'url': target,
         'searchId': effectiveSearchId,
+        'extraArgs': extraArgs,
       });
 
       if (_cancelledSearchIds.remove(effectiveSearchId)) {
@@ -527,7 +548,7 @@ class NativeBridgeService {
       }
 
       final outTemplate =
-          '${targetDir.path}${Platform.pathSeparator}%(title)s.%(ext)s';
+          '${targetDir.path}${Platform.pathSeparator}%(title).200B.%(ext)s';
       final configFile = await _getOrCreateConfigFile();
       // On desktop, sanitize Android's libaria2c.so back to aria2c binary name
       final sanitizedArgs = args

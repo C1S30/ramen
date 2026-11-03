@@ -1,24 +1,33 @@
 package com.ramen.ramen
 
 import android.content.Intent
+import android.database.sqlite.SQLiteDatabase
+import android.media.MediaCodecList
+import android.media.MediaScannerConnection
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.webkit.CookieManager
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.annotation.NonNull
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
-import android.media.MediaScannerConnection
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import com.yausername.youtubedl_android.YoutubeDLResponse
-import com.yausername.youtubedl_android.YoutubeDLException
 import com.yausername.ffmpeg.FFmpeg
 import com.yausername.aria2c.Aria2c
 
@@ -27,6 +36,8 @@ class MainActivity : FlutterActivity() {
         private const val TAG = "RamenBridge"
         private const val ENGINE_CHANNEL = "com.ramen.downloader/engine"
         private const val STREAM_CHANNEL = "com.ramen.downloader/download_stream"
+        private const val NETSCAPE_COOKIE_HEADER =
+            "# Netscape HTTP Cookie File\n# Auto-generated silently by Ramen WebView Cookie Engine\n\n"
     }
 
     private val executor = Executors.newCachedThreadPool()
@@ -45,6 +56,12 @@ class MainActivity : FlutterActivity() {
 
     @Volatile
     private var isJsRuntimesSupported: Boolean? = null
+
+    @Volatile
+    private var silentWebViewUserAgent: String = ""
+
+    @Volatile
+    private var isAv1HwAccelerated: Boolean? = null
 
     /**
      * Thread-safe wrapper around MethodChannel.Result ensuring that replies
@@ -107,6 +124,235 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun getSilentCookiesFile(): File = File(applicationContext.filesDir, "cookies.txt")
+    private fun getUserAgentFile(): File = File(applicationContext.filesDir, "webview_ua.txt")
+    private fun getTempDownloadDir(): File = File(applicationContext.cacheDir, "ytdlp_temp").apply {
+        if (!exists()) mkdirs()
+    }
+
+    /**
+     * Seal hardware check: detects whether the device has hardware-accelerated AV1 decoding.
+     */
+    private fun checkAv1HardwareAccelerated(): Boolean {
+        isAv1HwAccelerated?.let { return it }
+        val supported = try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                false
+            } else {
+                MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.any { info ->
+                    info.supportedTypes.any { it.equals("video/av01", ignoreCase = true) } &&
+                        info.isHardwareAccelerated
+                }
+            }
+        } catch (_: Exception) {
+            false
+        }
+        isAv1HwAccelerated = supported
+        return supported
+    }
+
+    /**
+     * Silently initializes or refreshes cookies + matching User-Agent using a headless,
+     * invisible Android WebView and extracts Chromium's SQLite cookie database into Netscape format
+     * (following JunkFood02/Seal's DownloadUtil.getCookieListFromDatabase + enableCookies).
+     */
+    private fun harvestCookiesSilently(targetUrl: String, timeoutMs: Long = 6500L): Boolean {
+        val originUrl = try {
+            val uri = Uri.parse(targetUrl)
+            if (uri.scheme != null && uri.host != null) {
+                "${uri.scheme}://${uri.host}/"
+            } else {
+                "https://www.youtube.com/"
+            }
+        } catch (_: Exception) {
+            "https://www.youtube.com/"
+        }
+
+        val latch = CountDownLatch(1)
+        var capturedUa = silentWebViewUserAgent
+
+        mainHandler.post {
+            var webView: WebView? = null
+            try {
+                val cookieManager = CookieManager.getInstance()
+                cookieManager.setAcceptCookie(true)
+
+                webView = WebView(applicationContext).apply {
+                    visibility = android.view.View.GONE
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.databaseEnabled = true
+                    settings.mediaPlaybackRequiresUserGesture = true
+                    capturedUa = settings.userAgentString ?: ""
+                    if (capturedUa.isNotBlank()) {
+                        silentWebViewUserAgent = capturedUa
+                        try {
+                            getUserAgentFile().writeText(capturedUa)
+                        } catch (_: Exception) {}
+                    }
+                    webViewClient = object : WebViewClient() {
+                        override fun onPageFinished(view: WebView?, url: String?) {
+                            try {
+                                CookieManager.getInstance().flush()
+                            } catch (_: Exception) {}
+                            latch.countDown()
+                        }
+
+                        override fun shouldOverrideUrlLoading(
+                            view: WebView?,
+                            request: WebResourceRequest?
+                        ): Boolean = false
+                    }
+                }
+                webView.loadUrl(originUrl)
+            } catch (e: Exception) {
+                android.util.Log.w(TAG, "Silent WebView init notice: ${e.message}")
+                latch.countDown()
+            } finally {
+                mainHandler.postDelayed({
+                    try {
+                        CookieManager.getInstance().flush()
+                    } catch (_: Exception) {}
+                    try {
+                        webView?.stopLoading()
+                        webView?.destroy()
+                    } catch (_: Exception) {}
+                    latch.countDown()
+                }, timeoutMs)
+            }
+        }
+
+        try {
+            latch.await(timeoutMs + 500L, TimeUnit.MILLISECONDS)
+        } catch (_: Exception) {}
+
+        return exportWebViewDatabaseToCookiesFile(originUrl, targetUrl)
+    }
+
+    /**
+     * Reads Android's app_webview/Default/Cookies SQLite database (Seal method) and
+     * CookieManager fallback to write a Netscape-compliant cookies.txt file.
+     */
+    @Synchronized
+    private fun exportWebViewDatabaseToCookiesFile(vararg urls: String): Boolean {
+        val sb = StringBuilder(NETSCAPE_COOKIE_HEADER)
+        var count = 0
+
+        // 1. Primary Seal method: Read directly from app_webview/Default/Cookies SQLite DB
+        try {
+            CookieManager.getInstance().flush()
+            val dbFile = applicationContext.dataDir.resolve("app_webview/Default/Cookies")
+            if (dbFile.exists()) {
+                SQLiteDatabase.openDatabase(
+                    dbFile.absolutePath,
+                    null,
+                    SQLiteDatabase.OPEN_READONLY
+                ).use { db ->
+                    val projection = arrayOf(
+                        "host_key",
+                        "expires_utc",
+                        "path",
+                        "name",
+                        "value",
+                        "is_secure"
+                    )
+                    db.query("cookies", projection, null, null, null, null, null).use { cursor ->
+                        while (cursor.moveToNext()) {
+                            val hostKey = cursor.getString(0) ?: continue
+                            val expiryUtc = cursor.getLong(1)
+                            val path = cursor.getString(2) ?: "/"
+                            val name = cursor.getString(3) ?: continue
+                            val value = cursor.getString(4) ?: ""
+                            val isSecure = cursor.getLong(5) == 1L
+
+                            if (name.isBlank() || value.isBlank()) continue
+                            val domain = if (!hostKey.startsWith(".")) ".$hostKey" else hostKey
+                            // Convert Chromium microseconds (since 1601) to Unix epoch seconds if needed
+                            val unixExpiry = if (expiryUtc > 11644473600000000L) {
+                                (expiryUtc / 1000000L) - 11644473600L
+                            } else if (expiryUtc > 0L) {
+                                expiryUtc
+                            } else {
+                                (System.currentTimeMillis() / 1000L) + 86400L * 30L
+                            }
+                            val includeSubdomains = if (domain.startsWith(".")) "TRUE" else "FALSE"
+                            val secureFlag = if (isSecure) "TRUE" else "FALSE"
+                            sb.append("$domain\t$includeSubdomains\t$path\t$secureFlag\t$unixExpiry\t$name\t$value\n")
+                            count++
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "WebView SQLite cookie export fallback: ${e.message}")
+        }
+
+        // 2. Supplement with CookieManager.getInstance().getCookie(url) for session cookies
+        try {
+            val cookieManager = CookieManager.getInstance()
+            val checkUrls = (urls.toList() + listOf("https://www.youtube.com", "https://m.youtube.com")).distinct()
+            for (u in checkUrls) {
+                if (u.isBlank()) continue
+                val rawCookie = cookieManager.getCookie(u) ?: continue
+                val host = try {
+                    Uri.parse(u).host ?: "youtube.com"
+                } catch (_: Exception) {
+                    "youtube.com"
+                }
+                val cleanHost = host.removePrefix("www.").removePrefix("m.")
+                val domain = if (cleanHost.startsWith(".")) cleanHost else ".$cleanHost"
+                val expiry = (System.currentTimeMillis() / 1000L) + 86400L * 30L
+                val pairs = rawCookie.split(";")
+                for (pair in pairs) {
+                    val trimmed = pair.trim()
+                    if (!trimmed.contains("=")) continue
+                    val name = trimmed.substringBefore("=").trim()
+                    val value = trimmed.substringAfter("=").trim()
+                    if (name.isNotEmpty() && value.isNotEmpty()) {
+                        sb.append("$domain\tTRUE\t/\tTRUE\t$expiry\t$name\t$value\n")
+                        count++
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
+        if (count > 0) {
+            try {
+                getSilentCookiesFile().writeText(sb.toString())
+                return true
+            } catch (e: Exception) {
+                android.util.Log.w(TAG, "Failed writing silent cookies.txt: ${e.message}")
+            }
+        }
+        return false
+    }
+
+    /**
+     * Attaches Seal's --cookies and matching --add-header User-Agent:<ua> to a YoutubeDLRequest
+     * if cookies exist and were not already overridden by user arguments.
+     */
+    private fun applySilentCookiesAndUserAgent(request: YoutubeDLRequest, existingArgs: List<String>) {
+        val cookiesFile = getSilentCookiesFile()
+        val hasExplicitCookies = existingArgs.contains("--cookies") || existingArgs.contains("--cookies-from-browser")
+        if (!hasExplicitCookies && cookiesFile.exists() && cookiesFile.length() > NETSCAPE_COOKIE_HEADER.length) {
+            request.addOption("--cookies", cookiesFile.absolutePath)
+        }
+
+        val hasExplicitUa = existingArgs.contains("--user-agent") ||
+            existingArgs.any { it.startsWith("User-Agent:", ignoreCase = true) }
+        val ua = silentWebViewUserAgent.ifBlank {
+            try {
+                val f = getUserAgentFile()
+                if (f.exists()) f.readText().trim() else ""
+            } catch (_: Exception) {
+                ""
+            }
+        }
+        if (!hasExplicitUa && ua.isNotBlank()) {
+            request.addOption("--add-header", "User-Agent:$ua")
+        }
+    }
+
     /**
      * Initializes all embedded binaries (YoutubeDL, FFmpeg, Aria2c, Node runtime wrapper).
      * Throws an exception on genuine failure rather than silently swallowing errors.
@@ -155,6 +401,22 @@ class MainActivity : FlutterActivity() {
             } catch (e: Exception) {
                 android.util.Log.w(TAG, "Node JS runtime setup warning: ${e.message}")
             }
+
+            // 5. Warm up silent WebView cookies & User-Agent in background
+            try {
+                val uaFile = getUserAgentFile()
+                if (uaFile.exists()) {
+                    silentWebViewUserAgent = uaFile.readText().trim()
+                }
+                exportWebViewDatabaseToCookiesFile("https://www.youtube.com")
+                if (silentWebViewUserAgent.isBlank() || !getSilentCookiesFile().exists()) {
+                    executor.execute {
+                        try {
+                            harvestCookiesSilently("https://www.youtube.com", 4500L)
+                        } catch (_: Exception) {}
+                    }
+                }
+            } catch (_: Exception) {}
 
             isEngineInitialized = true
         }
@@ -377,8 +639,8 @@ class MainActivity : FlutterActivity() {
                                     if (nodeFile.exists() && nodeFile.length() > 0) {
                                         val process = Runtime.getRuntime().exec(arrayOf("sh", nodeFile.absolutePath, "-v"))
                                         val output = process.inputStream.bufferedReader().use { it.readLine() }?.trim()
-                                        val finished = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                                            process.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)
+                                        val finished = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                            process.waitFor(2, TimeUnit.SECONDS)
                                         } else {
                                             process.waitFor()
                                             true
@@ -397,9 +659,10 @@ class MainActivity : FlutterActivity() {
                                 }
                                 val versions = mapOf(
                                     "ytdlp" to ytDlpVer,
-                                    "ffmpeg" to "N/A",
-                                    "aria2c" to "N/A",
-                                    "node" to nodeVer
+                                    "ffmpeg" to "Embedded (4.4+)",
+                                    "aria2c" to "Embedded (1.36+)",
+                                    "node" to nodeVer,
+                                    "av1_hw" to if (checkAv1HardwareAccelerated()) "Supported" else "Software"
                                 )
                                 safeResult.success(versions)
                             } catch (e: Exception) {
@@ -415,15 +678,21 @@ class MainActivity : FlutterActivity() {
                     }
 
                     "updateEngine" -> {
+                        val channelArg = call.argument<String>("channel")?.trim() ?: "nightly"
                         executor.execute {
                             try {
                                 ensureEngineInitialized()
-                                YoutubeDL.getInstance().updateYoutubeDL(applicationContext)
+                                val updateChannel = if (channelArg.equals("stable", ignoreCase = true)) {
+                                    YoutubeDL.UpdateChannel.STABLE
+                                } else {
+                                    YoutubeDL.UpdateChannel.NIGHTLY
+                                }
+                                YoutubeDL.getInstance().updateYoutubeDL(applicationContext, updateChannel)
                                 isJsRuntimesSupported = null
                                 getOrCreateConfigFile()
                                 val newVersion = YoutubeDL.getInstance().version(applicationContext)
-                                    ?: "Updated to latest stable"
-                                safeResult.success(newVersion)
+                                    ?: "Updated (${channelArg.uppercase()})"
+                                safeResult.success("$newVersion (${channelArg.uppercase()})")
                             } catch (e: Exception) {
                                 android.util.Log.e(TAG, "Update engine error: ${e.message}", e)
                                 val cleanError = extractCleanErrorMessage(e)
@@ -432,10 +701,24 @@ class MainActivity : FlutterActivity() {
                         }
                     }
 
+                    "refreshSilentCookies" -> {
+                        val targetUrl = call.argument<String>("url")?.trim()?.takeIf { it.isNotEmpty() }
+                            ?: "https://www.youtube.com"
+                        executor.execute {
+                            try {
+                                val ok = harvestCookiesSilently(targetUrl, 6000L)
+                                safeResult.success(ok)
+                            } catch (e: Exception) {
+                                safeResult.success(false)
+                            }
+                        }
+                    }
+
                     "getFormats" -> {
                         val url = call.argument<String>("url")?.trim()
                         val searchId = call.argument<String>("searchId")?.trim()?.takeIf { it.isNotEmpty() }
                             ?: "search_${System.currentTimeMillis()}"
+                        val extraArgs = call.argument<List<String>>("extraArgs") ?: emptyList()
 
                         if (url.isNullOrEmpty()) {
                             safeResult.error("INVALID_URL", "Target URL cannot be empty")
@@ -451,27 +734,58 @@ class MainActivity : FlutterActivity() {
                                 val configFile = getOrCreateConfigFile()
                                 var jsonOut: String? = null
 
-                                // Seal method: Fetch complete metadata using --dump-single-json
+                                // 1. Seal method: Fetch complete metadata using --dump-single-json with cookies & UA
                                 try {
                                     val jsonRequest = YoutubeDLRequest(url)
                                     jsonRequest.addOption("--config-locations", configFile.absolutePath)
                                     jsonRequest.addOption("--dump-single-json")
                                     jsonRequest.addOption("--no-warnings")
                                     jsonRequest.addOption("--flat-playlist")
+                                    jsonRequest.addOption("-o", "%(title).200B")
+                                    jsonRequest.addOption("-R", "1")
+                                    jsonRequest.addOption("--socket-timeout", "10")
+                                    applySilentCookiesAndUserAgent(jsonRequest, extraArgs)
+                                    applyOptions(jsonRequest, extraArgs)
+
                                     val jsonResponse: YoutubeDLResponse = YoutubeDL.getInstance().execute(jsonRequest, searchId, null)
                                     jsonOut = jsonResponse.out
                                 } catch (jsonEx: Exception) {
                                     if (isCancellationException(jsonEx)) {
                                         throw jsonEx
                                     }
-                                    android.util.Log.w(TAG, "--dump-single-json failed, trying -F fallback: ${jsonEx.message}")
+                                    val errMsg = jsonEx.message ?: ""
+                                    // If 403 Forbidden or Bot-check occurred, silently harvest fresh WebView cookies + IPv4 and retry
+                                    if (errMsg.contains("403") || errMsg.contains("Forbidden", ignoreCase = true) || errMsg.contains("bot", ignoreCase = true)) {
+                                        android.util.Log.w(TAG, "403/Bot-check during getFormats; running silent WebView cookie harvest for $url")
+                                        harvestCookiesSilently(url, 5500L)
+                                        try {
+                                            val retryRequest = YoutubeDLRequest(url)
+                                            retryRequest.addOption("--config-locations", configFile.absolutePath)
+                                            retryRequest.addOption("--dump-single-json")
+                                            retryRequest.addOption("--no-warnings")
+                                            retryRequest.addOption("--flat-playlist")
+                                            retryRequest.addOption("-4")
+                                            retryRequest.addOption("-S", "proto,vcodec:h264,ext")
+                                            applySilentCookiesAndUserAgent(retryRequest, extraArgs)
+                                            applyOptions(retryRequest, extraArgs)
+                                            val retryRes = YoutubeDL.getInstance().execute(retryRequest, searchId, null)
+                                            jsonOut = retryRes.out
+                                        } catch (retryEx: Exception) {
+                                            if (isCancellationException(retryEx)) throw retryEx
+                                            android.util.Log.w(TAG, "Silent 403 retry failed, falling back to -F: ${retryEx.message}")
+                                        }
+                                    } else {
+                                        android.util.Log.w(TAG, "--dump-single-json failed, trying -F fallback: $errMsg")
+                                    }
                                 }
 
-                                // Fallback to -F table extraction if JSON was not returned
+                                // 2. Fallback to -F table extraction if JSON was not returned
                                 if (jsonOut.isNullOrBlank()) {
                                     val tableRequest = YoutubeDLRequest(url)
                                     tableRequest.addOption("--config-locations", configFile.absolutePath)
                                     tableRequest.addOption("-F")
+                                    applySilentCookiesAndUserAgent(tableRequest, extraArgs)
+                                    applyOptions(tableRequest, extraArgs)
                                     val tableResponse: YoutubeDLResponse = YoutubeDL.getInstance().execute(tableRequest, searchId, null)
                                     jsonOut = tableResponse.out
                                 }
@@ -524,7 +838,7 @@ class MainActivity : FlutterActivity() {
 
                     "isIgnoringBatteryOptimizations" -> {
                         val pm = applicationContext.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
-                        val ignoring = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                        val ignoring = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                             pm.isIgnoringBatteryOptimizations(applicationContext.packageName)
                         } else {
                             true
@@ -534,11 +848,11 @@ class MainActivity : FlutterActivity() {
 
                     "requestIgnoreBatteryOptimizations" -> {
                         try {
-                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                                 val pm = applicationContext.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
                                 if (!pm.isIgnoringBatteryOptimizations(applicationContext.packageName)) {
                                     val intent = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                        data = android.net.Uri.parse("package:${applicationContext.packageName}")
+                                        data = Uri.parse("package:${applicationContext.packageName}")
                                     }
                                     startActivity(intent)
                                 }
@@ -595,13 +909,18 @@ class MainActivity : FlutterActivity() {
                                 }
 
                                 val request = YoutubeDLRequest(url)
-                                val outTemplate = File(targetDir, "%(title)s.%(ext)s").absolutePath
+                                // Seal improvement: Truncate basename to 200 bytes (%(title).200B.%(ext)s) to prevent Android ext4/f2fs Errno 36 (File name too long)
+                                val outTemplate = File(targetDir, "%(title).200B.%(ext)s").absolutePath
                                 request.addOption("-o", outTemplate)
+                                request.addOption("-P", "temp:${getTempDownloadDir().absolutePath}")
+                                request.addOption("--no-mtime")
+                                request.addOption("--no-embed-info-json")
 
                                 val configFile = getOrCreateConfigFile()
                                 if (!args.contains("--config-locations")) {
                                     request.addOption("--config-locations", configFile.absolutePath)
                                 }
+                                applySilentCookiesAndUserAgent(request, args)
                                 applyOptions(request, args)
 
                                 val speedRegex = Regex("""at\s+([0-9.]+\s*[kKmMgG]?[iI]?[bB]/s)""")
@@ -638,24 +957,42 @@ class MainActivity : FlutterActivity() {
                                     downloadException = e
                                 }
 
-                                // Resilient fallback: If aria2c fails (e.g. exit code 22 HTTP 403), retry seamlessly via yt-dlp native downloader
+                                // Seal 403 / aria2c / SponsorBlock resilient fallback:
+                                // If HTTP 403 Forbidden, aria2c exit code 22, or SponsorBlock API error occurs,
+                                // harvest silent WebView cookies + User-Agent, strip aria2c, force IPv4 + protocol compatibility, and retry!
                                 if (downloadException != null && !cancelledTasks.contains(taskId)) {
                                     val err = downloadException.message ?: ""
-                                    if (err.contains("aria2c", ignoreCase = true) || err.contains("exit code 22", ignoreCase = true) || err.contains("code 22", ignoreCase = true)) {
-                                        android.util.Log.w(TAG, "aria2c rejected ($err), retrying with yt-dlp native multi-fragment downloader for $taskId")
+                                    val isSponsorBlockErr = err.contains("Unable to communicate with SponsorBlock API", ignoreCase = true)
+                                    val is403OrAriaErr = err.contains("403") ||
+                                        err.contains("Forbidden", ignoreCase = true) ||
+                                        err.contains("aria2c", ignoreCase = true) ||
+                                        err.contains("exit code 22", ignoreCase = true) ||
+                                        err.contains("code 22", ignoreCase = true)
+
+                                    if (is403OrAriaErr || isSponsorBlockErr) {
+                                        android.util.Log.w(TAG, "Recoverable download error ($err), applying Seal 403/native fallback for $taskId")
                                         emitEvent(
                                             mapOf(
                                                 "taskId" to taskId,
                                                 "status" to "DOWNLOADING",
                                                 "progress" to 0.0,
-                                                "speed" to "Retrying...",
+                                                "speed" to "Bypassing 403...",
                                                 "eta" to 0,
-                                                "log" to "Aria2c connection rejected (code 22). Retrying with native downloader..."
+                                                "log" to "Applying silent WebView cookie + IPv4 + native downloader fallback..."
                                             )
                                         )
 
+                                        if (is403OrAriaErr) {
+                                            harvestCookiesSilently(url, 5500L)
+                                        }
+
                                         val fallbackRequest = YoutubeDLRequest(url)
                                         fallbackRequest.addOption("-o", outTemplate)
+                                        fallbackRequest.addOption("-P", "temp:${getTempDownloadDir().absolutePath}")
+                                        fallbackRequest.addOption("--no-mtime")
+                                        fallbackRequest.addOption("--no-embed-info-json")
+                                        fallbackRequest.addOption("-4")
+                                        fallbackRequest.addOption("-S", "proto,vcodec:h264,ext")
                                         if (!args.contains("--config-locations")) {
                                             fallbackRequest.addOption("--config-locations", configFile.absolutePath)
                                         }
@@ -672,11 +1009,16 @@ class MainActivity : FlutterActivity() {
                                                 skipNext = true
                                                 continue
                                             }
+                                            if (isSponsorBlockErr && a == "--sponsorblock-remove") {
+                                                skipNext = true
+                                                continue
+                                            }
                                             if (a.startsWith("--downloader=") || a.startsWith("--external-downloader=") || a.startsWith("--downloader-args=") || a.startsWith("--external-downloader-args=")) {
                                                 continue
                                             }
                                             nonAriaArgs.add(a)
                                         }
+                                        applySilentCookiesAndUserAgent(fallbackRequest, nonAriaArgs)
                                         applyOptions(fallbackRequest, nonAriaArgs)
 
                                         try {
@@ -686,6 +1028,12 @@ class MainActivity : FlutterActivity() {
                                                 val rawLine = line ?: ""
                                                 val speedMatch = speedRegex.find(rawLine)
                                                 val speed = speedMatch?.groupValues?.getOrNull(1) ?: ""
+                                                RamenBackgroundService.onDownloadProgress(
+                                                    applicationContext,
+                                                    taskId,
+                                                    progress.toDouble(),
+                                                    speed
+                                                )
                                                 emitEvent(
                                                     mapOf(
                                                         "taskId" to taskId,
