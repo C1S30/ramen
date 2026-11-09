@@ -149,9 +149,9 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                             child: Text(
                               '● LIVE',
                               style: AppStyles.monoSmall.copyWith(
-                                color: Colors.white,
+                                color: AppColors.onAccent,
                                 fontSize: 9,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                           ),
@@ -254,16 +254,16 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
 
           // Row 2: Minimalist Linear Progress Bar
           ClipRRect(
-            borderRadius: BorderRadius.circular(3),
+            borderRadius: BorderRadius.circular(1),
             child: LinearProgressIndicator(
               value: (task.isLiveStream && task.progress <= 0 && !isPaused)
                   ? null
                   : (task.progress.clamp(0.0, 100.0)) / 100.0,
               backgroundColor: AppColors.surfaceHighlight,
               valueColor: AlwaysStoppedAnimation<Color>(
-                isPaused ? AppColors.warning : AppColors.accent,
+                isPaused ? AppColors.textSecondary : AppColors.accent,
               ),
-              minHeight: 4,
+              minHeight: 2.5,
             ),
           ),
           const SizedBox(height: 8),

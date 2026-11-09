@@ -21,12 +21,16 @@ class SettingsView extends StatelessWidget {
         elevation: 0,
         centerTitle: true,
         title: Text(
-          '- SETTINGS -',
+          'SETTINGS',
           style: AppStyles.monoHeadline.copyWith(
-            fontSize: 18,
-            letterSpacing: 1.5,
-            fontWeight: FontWeight.w800,
+            fontSize: 14,
+            letterSpacing: 4.0,
+            fontWeight: FontWeight.w700,
           ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: AppColors.border),
         ),
       ),
       body: SingleChildScrollView(
@@ -707,20 +711,28 @@ class SettingsView extends StatelessWidget {
                   ],
                 )
               else
-                Material(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadiusGeometry.circular(5),
-                  ),
-                  color: AppColors.border,
-
-                  child: InkWell(
-                    customBorder: RoundedRectangleBorder(
-                      borderRadius: BorderRadiusGeometry.circular(5),
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.textPrimary,
+                    side: const BorderSide(color: AppColors.borderLight),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
                     ),
-                    onTap: () => controller.updateEngine(),
-                    child: Text(
-                      'Check for Updates',
-                      style: AppStyles.monoAccent,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  onPressed: () => controller.updateEngine(),
+                  child: Text(
+                    'CHECK UPDATES',
+                    style: AppStyles.monoSmall.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 10,
+                      letterSpacing: 0.6,
                     ),
                   ),
                 ),
@@ -838,7 +850,7 @@ class SettingsView extends StatelessWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.accent,
-              foregroundColor: Colors.white,
+              foregroundColor: AppColors.onAccent,
             ),
             onPressed: () {
               final newDir = textController.text.trim();
@@ -849,7 +861,10 @@ class SettingsView extends StatelessWidget {
             },
             child: Text(
               'Save',
-              style: AppStyles.monoSmall.copyWith(color: Colors.white),
+              style: AppStyles.monoSmall.copyWith(
+                color: AppColors.onAccent,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -911,7 +926,7 @@ class SettingsView extends StatelessWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.accent,
-              foregroundColor: Colors.white,
+              foregroundColor: AppColors.onAccent,
             ),
             onPressed: () {
               final newProxy = textController.text.trim();
@@ -922,7 +937,10 @@ class SettingsView extends StatelessWidget {
             },
             child: Text(
               'Save',
-              style: AppStyles.monoSmall.copyWith(color: Colors.white),
+              style: AppStyles.monoSmall.copyWith(
+                color: AppColors.onAccent,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -987,7 +1005,7 @@ class SettingsView extends StatelessWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.accent,
-              foregroundColor: Colors.white,
+              foregroundColor: AppColors.onAccent,
             ),
             onPressed: () {
               final limit = textController.text.trim();
@@ -998,7 +1016,10 @@ class SettingsView extends StatelessWidget {
             },
             child: Text(
               'Save',
-              style: AppStyles.monoSmall.copyWith(color: Colors.white),
+              style: AppStyles.monoSmall.copyWith(
+                color: AppColors.onAccent,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -1080,7 +1101,7 @@ class SettingsView extends StatelessWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.accent,
-              foregroundColor: Colors.white,
+              foregroundColor: AppColors.onAccent,
             ),
             onPressed: () async {
               await controller.saveCustomCookies(textController.text.trim());
@@ -1088,7 +1109,10 @@ class SettingsView extends StatelessWidget {
             },
             child: Text(
               'Save',
-              style: AppStyles.monoSmall.copyWith(color: Colors.white),
+              style: AppStyles.monoSmall.copyWith(
+                color: AppColors.onAccent,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -1154,7 +1178,7 @@ class SettingsView extends StatelessWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.accent,
-              foregroundColor: Colors.white,
+              foregroundColor: AppColors.onAccent,
             ),
             onPressed: () {
               final raw = textController.text.trim();
@@ -1165,7 +1189,10 @@ class SettingsView extends StatelessWidget {
             },
             child: Text(
               'Save',
-              style: AppStyles.monoSmall.copyWith(color: Colors.white),
+              style: AppStyles.monoSmall.copyWith(
+                color: AppColors.onAccent,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],

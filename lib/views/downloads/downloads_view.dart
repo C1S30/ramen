@@ -33,17 +33,17 @@ class DownloadsView extends StatelessWidget {
         titleSpacing: 20,
         centerTitle: true,
         title: Text(
-          '- DOWNLOADS -',
+          'QUEUE',
           style: AppStyles.monoHeadline.copyWith(
-            fontSize: 18,
-            letterSpacing: 1.5,
-            fontWeight: FontWeight.w800,
+            fontSize: 14,
+            letterSpacing: 4.0,
+            fontWeight: FontWeight.w700,
           ),
         ),
         actions: [
           if (completedTasks.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.cleaning_services_rounded, size: 20),
+              icon: const Icon(Icons.cleaning_services_rounded, size: 18),
               tooltip: 'Clear completed tasks',
               color: AppColors.textSecondary,
               onPressed: () => downloadCtrl.clearCompleted(),
@@ -180,12 +180,12 @@ class DownloadsView extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppColors.accentMuted
+                            ? AppColors.accent
                             : AppColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(6),
                         border: Border.all(
                           color: isSelected
-                              ? AppColors.accentBright
+                              ? AppColors.accent
                               : AppColors.border,
                           width: 1,
                         ),
@@ -193,22 +193,11 @@ class DownloadsView extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (isSelected) ...[
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: AppColors.accentBright,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                          ],
                           Text(
                             tab.title as String,
                             style: AppStyles.monoSmall.copyWith(
                               color: isSelected
-                                  ? Colors.white
+                                  ? AppColors.onAccent
                                   : AppColors.textSecondary,
                               fontWeight: isSelected
                                   ? FontWeight.w700
@@ -221,10 +210,12 @@ class DownloadsView extends StatelessWidget {
                             GestureDetector(
                               onTap: () =>
                                   downloadCtrl.closeTab(tab.id as String),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.close_rounded,
                                 size: 14,
-                                color: AppColors.textMuted,
+                                color: isSelected
+                                    ? AppColors.onAccent
+                                    : AppColors.textMuted,
                               ),
                             ),
                           ],

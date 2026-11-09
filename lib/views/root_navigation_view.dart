@@ -11,7 +11,6 @@ import 'downloads/downloads_view.dart';
 import 'home/home_view.dart';
 import 'preview/preview_view.dart';
 import 'settings/settings_view.dart';
-import 'templates/template_editor_view.dart';
 
 class RootNavigationView extends StatefulWidget {
   const RootNavigationView({super.key});
@@ -129,64 +128,86 @@ class _RootNavigationViewState extends State<RootNavigationView>
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
-          color: AppColors.surface,
+          color: AppColors.background,
           border: Border(top: BorderSide(color: AppColors.border, width: 1)),
         ),
         child: NavigationBarTheme(
           data: NavigationBarThemeData(
-            backgroundColor: AppColors.surface,
-            indicatorColor: AppColors.accentMuted,
+            backgroundColor: AppColors.background,
+            indicatorColor: AppColors.surfaceHighlight,
+            indicatorShape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: const BorderSide(color: AppColors.borderLight, width: 1),
+            ),
             labelTextStyle: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.selected)) {
-                return AppStyles.monoAccent.copyWith(fontSize: 11);
+                return AppStyles.monoAccent.copyWith(
+                  fontSize: 10.5,
+                  letterSpacing: 0.6,
+                );
               }
               return AppStyles.monoSmall.copyWith(
-                fontSize: 11,
+                fontSize: 10.5,
+                letterSpacing: 0.4,
                 color: AppColors.textMuted,
               );
             }),
             iconTheme: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.selected)) {
                 return const IconThemeData(
-                  color: AppColors.accentBright,
-                  size: 22,
+                  color: AppColors.textPrimary,
+                  size: 20,
                 );
               }
               return const IconThemeData(
-                color: AppColors.textSecondary,
-                size: 22,
+                color: AppColors.textMuted,
+                size: 20,
               );
             }),
           ),
           child: NavigationBar(
-            height: 60,
-            indicatorShape: null,
+            height: 62,
             selectedIndex: _currentIndex,
             onDestinationSelected: _onTabSelected,
             destinations: [
-              NavigationDestination(
-                icon: const Icon(Icons.search_rounded),
-                // selectedIcon: const Icon(Icons.search_rounded),
-                label: 'Search',
+              const NavigationDestination(
+                icon: Icon(Icons.search_rounded),
+                label: 'SEARCH',
               ),
               NavigationDestination(
                 icon: Badge(
                   isLabelVisible: activeCount > 0,
-                  label: Text('$activeCount'),
+                  label: Text(
+                    '$activeCount',
+                    style: AppStyles.monoSmall.copyWith(
+                      color: AppColors.onAccent,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                   backgroundColor: AppColors.accent,
-                  child: const Icon(Icons.downloading_rounded),
+                  textColor: AppColors.onAccent,
+                  child: const Icon(Icons.south_rounded),
                 ),
-                selectedIcon: const Icon(Icons.downloading_rounded),
-                label: 'Downloads',
+                selectedIcon: Badge(
+                  isLabelVisible: activeCount > 0,
+                  label: Text(
+                    '$activeCount',
+                    style: AppStyles.monoSmall.copyWith(
+                      color: AppColors.onAccent,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  backgroundColor: AppColors.accent,
+                  textColor: AppColors.onAccent,
+                  child: const Icon(Icons.south_rounded),
+                ),
+                label: 'QUEUE',
               ),
-              // const NavigationDestination(
-              //   icon: Icon(Icons.terminal_rounded),
-              //   selectedIcon: Icon(Icons.terminal_rounded),
-              //   label: 'Templates',
-              // ),
               const NavigationDestination(
-                icon: Icon(Icons.settings_outlined),
-                label: 'Settings',
+                icon: Icon(Icons.tune_rounded),
+                label: 'SETTINGS',
               ),
             ],
           ),
@@ -215,31 +236,26 @@ class _RootNavigationViewState extends State<RootNavigationView>
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
         border: Border(
-          top: BorderSide(
-            color: (isDownloading || isSearching)
-                ? AppColors.accent.withValues(alpha: 0.6)
-                : AppColors.success.withValues(alpha: 0.6),
-            width: 1,
-          ),
+          top: BorderSide(color: AppColors.borderLight, width: 1),
         ),
       ),
       child: Row(
         children: [
           if (isDownloading)
             SizedBox(
-              width: 18,
-              height: 18,
+              width: 16,
+              height: 16,
               child: CircularProgressIndicator(
                 value: downloadProgress > 0 && downloadProgress < 100
                     ? downloadProgress / 100.0
                     : null,
-                strokeWidth: 2.2,
-                color: AppColors.accentBright,
-                backgroundColor: AppColors.border,
+                strokeWidth: 1.8,
+                color: AppColors.accent,
+                backgroundColor: AppColors.borderLight,
               ),
             )
           else if (isSearching)
@@ -247,15 +263,15 @@ class _RootNavigationViewState extends State<RootNavigationView>
               width: 16,
               height: 16,
               child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.accentBright,
+                strokeWidth: 1.8,
+                color: AppColors.accent,
               ),
             )
           else
             const Icon(
-              Icons.check_circle_rounded,
-              size: 18,
-              color: AppColors.success,
+              Icons.check_circle_outline_rounded,
+              size: 17,
+              color: AppColors.textPrimary,
             ),
           const SizedBox(width: 12),
           Expanded(
@@ -265,116 +281,97 @@ class _RootNavigationViewState extends State<RootNavigationView>
               children: [
                 Text(
                   isDownloading
-                      ? 'DOWNLOADING${activeDownloads.length > 1 ? ' (${activeDownloads.length})' : ''} • ${downloadProgress.toStringAsFixed(1)}%${primaryTask!.speed.isNotEmpty ? ' • ${primaryTask.speed}' : ''}'
-                      : (isSearching ? 'SEARCHING...' : 'SUCCESS!'),
+                      ? 'DOWNLOADING${activeDownloads.length > 1 ? ' (${activeDownloads.length})' : ''}  •  ${downloadProgress.toStringAsFixed(1)}%${primaryTask!.speed.isNotEmpty ? '  •  ${primaryTask.speed}' : ''}'
+                      : (isSearching ? 'INSPECTING STREAM' : 'READY'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppStyles.monoSmall.copyWith(
                     fontSize: 10,
+                    letterSpacing: 0.8,
                     fontWeight: FontWeight.w700,
-                    color: (isDownloading || isSearching)
-                        ? AppColors.accentBright
-                        : AppColors.success,
+                    color: AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
                   isDownloading
                       ? primaryTask!.title
                       : (isSearching
                             ? (query.isNotEmpty
                                   ? query
-                                  : 'Inspecting media stream...')
+                                  : 'Resolving media metadata...')
                             : (resource?.title ?? 'Media ready to preview')),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppStyles.bodyMedium.copyWith(
-                    color: AppColors.textPrimary,
+                    color: AppColors.textSecondary,
                     fontSize: 12,
                   ),
                 ),
                 if (isDownloading) ...[
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 6),
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(3),
+                    borderRadius: BorderRadius.circular(1),
                     child: LinearProgressIndicator(
                       value: downloadProgress > 0 && downloadProgress < 100
                           ? downloadProgress / 100.0
                           : null,
-                      minHeight: 3,
+                      minHeight: 2,
                       backgroundColor: AppColors.border,
-                      color: AppColors.accentBright,
-                      borderRadius: BorderRadius.circular(12),
+                      color: AppColors.accent,
                     ),
                   ),
                 ],
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           if (isDownloading) ...[
-            TextButton(
+            OutlinedButton(
               onPressed: () => downloadCtrl.cancelTask(primaryTask!.id),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.error,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+                side: const BorderSide(color: AppColors.borderLight),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
               ),
               child: Text(
                 'CANCEL',
                 style: AppStyles.monoSmall.copyWith(
-                  color: AppColors.error,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 10.5,
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 10,
+                  letterSpacing: 0.6,
                 ),
               ),
             ),
-            // if (_currentIndex != 1) ...[
-            //   const SizedBox(width: 4),
-            //   ElevatedButton(
-            //     onPressed: () => _onTabSelected(1),
-            //     style: ElevatedButton.styleFrom(
-            //       backgroundColor: AppColors.accent,
-            //       foregroundColor: Colors.white,
-            //       padding: const EdgeInsets.symmetric(
-            //         horizontal: 10,
-            //         vertical: 6,
-            //       ),
-            //       minimumSize: Size.zero,
-            //       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            //       shape: RoundedRectangleBorder(
-            //         borderRadius: BorderRadius.circular(6),
-            //       ),
-            //     ),
-            //     child: Text(
-            //       'QUEUE',
-            //       style: AppStyles.monoSmall.copyWith(
-            //         color: Colors.white,
-            //         fontWeight: FontWeight.w700,
-            //         fontSize: 10.5,
-            //       ),
-            //     ),
-            //   ),
-            // ],
           ] else if (isSearching)
-            TextButton(
+            OutlinedButton(
               onPressed: () => searchCtrl.cancelSearch(),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.error,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+                side: const BorderSide(color: AppColors.borderLight),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 6,
                 ),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
               ),
               child: Text(
                 'CANCEL',
                 style: AppStyles.monoSmall.copyWith(
-                  color: AppColors.error,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 11,
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 10,
+                  letterSpacing: 0.6,
                 ),
               ),
             )
@@ -391,16 +388,17 @@ class _RootNavigationViewState extends State<RootNavigationView>
                 'DISMISS',
                 style: AppStyles.monoSmall.copyWith(
                   color: AppColors.textMuted,
-                  fontSize: 10.5,
+                  fontSize: 10,
+                  letterSpacing: 0.6,
                 ),
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
             ElevatedButton(
               onPressed: () => _openPreviewFromBanner(context, searchCtrl),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.accent,
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.onAccent,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 6,
@@ -412,11 +410,12 @@ class _RootNavigationViewState extends State<RootNavigationView>
                 ),
               ),
               child: Text(
-                'PREVIEW',
+                'OPEN',
                 style: AppStyles.monoSmall.copyWith(
-                  color: Colors.white,
+                  color: AppColors.onAccent,
                   fontWeight: FontWeight.w700,
-                  fontSize: 11,
+                  fontSize: 10.5,
+                  letterSpacing: 0.6,
                 ),
               ),
             ),

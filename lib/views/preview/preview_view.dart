@@ -367,7 +367,7 @@ class _PreviewViewState extends State<PreviewView> {
                           ? 'Choose audio quality for extraction'
                           : 'Choose audio stream quality',
                       icon: Icons.audiotrack_rounded,
-                      accentColor: Colors.amberAccent,
+                      accentColor: AppColors.textPrimary,
                       formats: effectiveAudioFormats,
                       selectedFormat: isAudio && audioFormats.isEmpty
                           ? searchCtrl.selectedVideoFormat
@@ -477,9 +477,9 @@ class _PreviewViewState extends State<PreviewView> {
                                     ? 'SEARCH RESULTS'
                                     : 'PLAYLIST',
                                 style: AppStyles.monoSmall.copyWith(
-                                  color: Colors.white,
+                                  color: AppColors.onAccent,
                                   fontSize: 9.5,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
                             ),
@@ -824,7 +824,7 @@ class _PreviewViewState extends State<PreviewView> {
                       child: Checkbox(
                         value: searchCtrl.useNativePlaylistProcess,
                         activeColor: AppColors.accent,
-                        checkColor: Colors.white,
+                        checkColor: AppColors.onAccent,
                         onChanged: (val) => searchCtrl
                             .setUseNativePlaylistProcess(val ?? false),
                       ),
@@ -881,7 +881,7 @@ class _PreviewViewState extends State<PreviewView> {
               child: Checkbox(
                 value: isSelected,
                 activeColor: AppColors.accent,
-                checkColor: Colors.white,
+                checkColor: AppColors.onAccent,
                 onChanged: isPlayable
                     ? (_) => searchCtrl.togglePlaylistItem(entry.id)
                     : null,
@@ -945,9 +945,9 @@ class _PreviewViewState extends State<PreviewView> {
                         child: Text(
                           'LIVE',
                           style: AppStyles.monoSmall.copyWith(
-                            color: Colors.white,
+                            color: AppColors.onAccent,
                             fontSize: 8,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ),
@@ -1324,7 +1324,7 @@ class _PreviewViewState extends State<PreviewView> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: badgeColor.withValues(alpha: 0.9),
+                color: badgeColor.withValues(alpha: 0.92),
                 borderRadius: BorderRadius.circular(4),
                 border: resource.wasLive
                     ? Border.all(color: AppColors.borderLight)
@@ -1337,24 +1337,24 @@ class _PreviewViewState extends State<PreviewView> {
                     const Icon(
                       Icons.fiber_manual_record_rounded,
                       size: 10,
-                      color: Colors.white,
+                      color: AppColors.onAccent,
                     ),
                     const SizedBox(width: 4),
                   ] else if (resource.isUpcoming) ...[
                     const Icon(
                       Icons.schedule_rounded,
                       size: 11,
-                      color: Colors.black,
+                      color: AppColors.onAccent,
                     ),
                     const SizedBox(width: 4),
                   ],
                   Text(
                     resource.liveStatus.badgeLabel,
                     style: AppStyles.monoSmall.copyWith(
-                      color: resource.isUpcoming || resource.isPostLive
-                          ? Colors.black
-                          : Colors.white,
-                      fontWeight: FontWeight.w700,
+                      color: resource.wasLive
+                          ? AppColors.textPrimary
+                          : AppColors.onAccent,
+                      fontWeight: FontWeight.w800,
                       fontSize: 10,
                     ),
                   ),
@@ -1372,11 +1372,11 @@ class _PreviewViewState extends State<PreviewView> {
     bool isAudio,
   ) {
     return Container(
-      height: 42,
+      height: 40,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
@@ -1390,8 +1390,8 @@ class _PreviewViewState extends State<PreviewView> {
               },
               child: Container(
                 decoration: BoxDecoration(
-                  color: !isAudio ? AppColors.borderLight : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
+                  color: !isAudio ? AppColors.accent : Colors.transparent,
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 alignment: Alignment.center,
                 child: Row(
@@ -1399,17 +1399,21 @@ class _PreviewViewState extends State<PreviewView> {
                   children: [
                     Icon(
                       Icons.video_collection_outlined,
-                      size: 16,
-                      color: !isAudio ? Colors.white : AppColors.textSecondary,
+                      size: 15,
+                      color: !isAudio
+                          ? AppColors.onAccent
+                          : AppColors.textSecondary,
                     ),
                     const SizedBox(width: 8),
                     Text(
                       'VIDEO + AUDIO',
                       style: AppStyles.monoSmall.copyWith(
                         color: !isAudio
-                            ? Colors.white
+                            ? AppColors.onAccent
                             : AppColors.textSecondary,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: !isAudio
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                       ),
                     ),
                   ],
@@ -1426,8 +1430,8 @@ class _PreviewViewState extends State<PreviewView> {
               },
               child: Container(
                 decoration: BoxDecoration(
-                  color: isAudio ? AppColors.borderLight : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
+                  color: isAudio ? AppColors.accent : Colors.transparent,
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 alignment: Alignment.center,
                 child: Row(
@@ -1435,15 +1439,19 @@ class _PreviewViewState extends State<PreviewView> {
                   children: [
                     Icon(
                       Icons.audiotrack_rounded,
-                      size: 16,
-                      color: isAudio ? Colors.white : AppColors.textSecondary,
+                      size: 15,
+                      color: isAudio
+                          ? AppColors.onAccent
+                          : AppColors.textSecondary,
                     ),
                     const SizedBox(width: 8),
                     Text(
                       'AUDIO ONLY',
                       style: AppStyles.monoSmall.copyWith(
-                        color: isAudio ? Colors.white : AppColors.textSecondary,
-                        fontWeight: FontWeight.w600,
+                        color: isAudio
+                            ? AppColors.onAccent
+                            : AppColors.textSecondary,
+                        fontWeight: isAudio ? FontWeight.w700 : FontWeight.w500,
                       ),
                     ),
                   ],
@@ -1728,18 +1736,19 @@ class _PreviewViewState extends State<PreviewView> {
 
     return SizedBox(
       width: double.infinity,
-      height: 52,
+      height: 50,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           backgroundColor: isDisabled
               ? AppColors.surfaceElevated
               : AppColors.accent,
-          foregroundColor: Colors.white,
+          foregroundColor: isDisabled
+              ? AppColors.textMuted
+              : AppColors.onAccent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(8),
           ),
-          elevation: isDisabled ? 0 : 4,
-          // shadowColor: AppColors.accentGlow,
+          elevation: 0,
         ),
         onPressed: isDisabled
             ? null
@@ -1768,14 +1777,19 @@ class _PreviewViewState extends State<PreviewView> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(buttonIcon, size: 23),
+            Icon(
+              buttonIcon,
+              size: 20,
+              color: isDisabled ? AppColors.textMuted : AppColors.onAccent,
+            ),
             const SizedBox(width: 10),
             Text(
               buttonLabel,
               style: AppStyles.monoHeadline.copyWith(
-                color: isDisabled ? AppColors.textMuted : Colors.white,
-                fontSize: 15,
-                letterSpacing: 1,
+                color: isDisabled ? AppColors.textMuted : AppColors.onAccent,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
               ),
             ),
           ],

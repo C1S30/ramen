@@ -202,8 +202,9 @@ class _AdvancedYtDlpSheetState extends State<AdvancedYtDlpSheet> {
                   value: _options.audioFormat,
                   items: const ['mp3', 'm4a', 'opus', 'flac', 'wav'],
                   onChanged: (val) {
-                    if (val != null)
+                    if (val != null) {
                       _update(_options.copyWith(audioFormat: val));
+                    }
                   },
                 ),
                 _buildDropdown<String>(
@@ -211,8 +212,9 @@ class _AdvancedYtDlpSheetState extends State<AdvancedYtDlpSheet> {
                   value: _options.audioQuality,
                   items: const ['0', '320k', '256k', '192k', '128k'],
                   onChanged: (val) {
-                    if (val != null)
+                    if (val != null) {
                       _update(_options.copyWith(audioQuality: val));
+                    }
                   },
                 ),
                 _buildDropdown<String?>(
@@ -542,10 +544,6 @@ class _AdvancedYtDlpSheetState extends State<AdvancedYtDlpSheet> {
           ),
           Switch(
             value: value,
-            activeColor: AppColors.accentBright,
-            activeTrackColor: AppColors.accentMuted,
-            inactiveThumbColor: AppColors.textMuted,
-            inactiveTrackColor: AppColors.surfaceHighlight,
             onChanged: onChanged,
           ),
         ],

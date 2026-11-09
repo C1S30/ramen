@@ -386,7 +386,7 @@ class _TemplateEditorViewState extends State<TemplateEditorView>
       SnackBar(
         content: Text(
           'Template "$name" created successfully',
-          style: AppStyles.bodyMedium.copyWith(color: Colors.white),
+          style: AppStyles.bodyMedium.copyWith(color: AppColors.onAccent),
         ),
         backgroundColor: AppColors.accent,
       ),
@@ -668,23 +668,28 @@ class _TemplateEditorViewState extends State<TemplateEditorView>
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.accent,
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppColors.onAccent,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      elevation: 2,
+                      elevation: 0,
                     ),
                     onPressed: () => _saveTemplate(controller),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.save_rounded, size: 18),
+                        const Icon(
+                          Icons.save_rounded,
+                          size: 18,
+                          color: AppColors.onAccent,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'SAVE TEMPLATE',
                           style: AppStyles.monoHeadline.copyWith(
-                            color: Colors.white,
+                            color: AppColors.onAccent,
                             fontSize: 13,
+                            fontWeight: FontWeight.w700,
                             letterSpacing: 1.0,
                           ),
                         ),
@@ -767,13 +772,15 @@ class _TemplateEditorViewState extends State<TemplateEditorView>
                   label: Text(option.label),
                   labelStyle: AppStyles.monoSmall.copyWith(
                     fontSize: 11,
-                    color: isSelected ? Colors.white : AppColors.textSecondary,
+                    color: isSelected
+                        ? AppColors.onAccent
+                        : AppColors.textSecondary,
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                   ),
                   selected: isSelected,
                   selectedColor: AppColors.accent,
                   backgroundColor: AppColors.chipBackground,
-                  checkmarkColor: Colors.white,
+                  checkmarkColor: AppColors.onAccent,
                   showCheckmark: true,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),

@@ -1,34 +1,35 @@
 import 'package:flutter/material.dart';
 
-/// Minimalist, professional color palette adhering to the 70-30-10 rule:
-/// - 70% Deep Void Black: Canvas, background, deep panels
-/// - 30% Crisp Functional White: High-contrast typography, cards, structural borders
-/// - 10% Crimson Red Accent: Action buttons, active tabs, progress bars, highlights
+/// Pure Black & White Minimalist Monochrome Color Palette:
+/// - Canvas & Surfaces: Pure OLED Black (#000000) to Carbon Obsidian (#1C1C1C)
+/// - Typography & Accents: Pure Crisp White (#FFFFFF) to Muted Zinc (#525252)
+/// - High-Contrast Inversion: White-on-Black cards, Black-on-White primary actions
 class AppColors {
   AppColors._();
 
-  // 70% Deep Void Black & Surfaces
-  static const Color background = Color(0xFF070709);
-  static const Color surface = Color(0xFF101014);
-  static const Color surfaceElevated = Color(0xFF16161B);
-  static const Color surfaceHighlight = Color(0xFF1F1F26);
+  // Deep Monochrome Canvas & Surfaces
+  static const Color background = Color(0xFF000000);
+  static const Color surface = Color(0xFF0A0A0A);
+  static const Color surfaceElevated = Color(0xFF121212);
+  static const Color surfaceHighlight = Color(0xFF1C1C1C);
 
-  // 30% Functional White & Structural Grays
-  static const Color textPrimary = Color(0xFFFAFAFA);
-  static const Color textSecondary = Color(0xFFA1A1AA);
-  static const Color textMuted = Color(0xFF71717A);
-  static const Color border = Color(0xFF27272A);
-  static const Color borderLight = Color(0xFF3F3F46);
-  static const Color chipBackground = Color(0xFF18181E);
+  // Crisp Monochrome Typography & Hairline Borders
+  static const Color textPrimary = Color(0xFFFFFFFF);
+  static const Color textSecondary = Color(0xFFA3A3A3);
+  static const Color textMuted = Color(0xFF525252);
+  static const Color border = Color(0xFF1F1F1F);
+  static const Color borderLight = Color(0xFF333333);
+  static const Color chipBackground = Color(0xFF0F0F0F);
 
-  // 10% Intense Crimson Red Accent
-  static const Color accent = Color(0xFFE50914);
-  static const Color accentBright = Color(0xFFFF2A2A);
-  static const Color accentMuted = Color(0x33E50914);
-  static const Color accentGlow = Color(0x4DE50914);
+  // High-Contrast Pure White Accent & Inverted Foreground
+  static const Color accent = Color(0xFFFFFFFF);
+  static const Color accentBright = Color(0xFFFFFFFF);
+  static const Color onAccent = Color(0xFF000000);
+  static const Color accentMuted = Color(0x1AFFFFFF);
+  static const Color accentGlow = Color(0x26FFFFFF);
 
-  // Status & Utility Accents
-  static const Color success = Color(0xFF22C55E);
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color error = Color(0xFFEF4444);
+  // Minimalist Semantic Status Accents
+  static const Color success = Color(0xFFE5E5E5);
+  static const Color warning = Color(0xFFD4D4D4);
+  static const Color error = Color(0xFFF87171);
 }

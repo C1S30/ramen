@@ -118,7 +118,7 @@ class PlaylistFormatView extends StatelessWidget {
                       Checkbox(
                         value: isChecked,
                         activeColor: AppColors.accent,
-                        checkColor: AppColors.textPrimary,
+                        checkColor: AppColors.onAccent,
                         onChanged: (_) => controller.togglePlaylistItem(item.id),
                       ),
                       ClipRRect(
@@ -205,7 +205,9 @@ class PlaylistFormatView extends StatelessWidget {
                   backgroundColor: selectedCount > 0
                       ? AppColors.accent
                       : AppColors.surfaceElevated,
-                  foregroundColor: AppColors.textPrimary,
+                  foregroundColor: selectedCount > 0
+                      ? AppColors.onAccent
+                      : AppColors.textMuted,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -220,14 +222,20 @@ class PlaylistFormatView extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.playlist_play_rounded, size: 22),
+                    Icon(
+                      Icons.playlist_play_rounded,
+                      size: 22,
+                      color: selectedCount > 0
+                          ? AppColors.onAccent
+                          : AppColors.textMuted,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'DOWNLOAD $selectedCount VIDEOS',
                       style: AppStyles.monoLabel.copyWith(
                         fontWeight: FontWeight.w700,
                         color: selectedCount > 0
-                            ? AppColors.textPrimary
+                            ? AppColors.onAccent
                             : AppColors.textMuted,
                       ),
                     ),

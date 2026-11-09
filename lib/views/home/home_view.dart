@@ -64,121 +64,74 @@ class _HomeViewState extends State<HomeView> {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        titleSpacing: 20,
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // ClipRRect(
-            //   borderRadius: BorderRadius.circular(6),
-            //   child: Image.asset(
-            //     'assets/icons/ramen_icon.png',
-            //     width: 28,
-            //     height: 28,
-            //     fit: BoxFit.contain,
-            //   ),
-            // ),
-            // const SizedBox(width: 10),
-            Text(
-              '- RAMEN -',
-              style: AppStyles.monoHeadline.copyWith(
-                fontSize: 18,
-                letterSpacing: 2,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
+        centerTitle: true,
+        title: Text(
+          'RAMEN',
+          style: AppStyles.monoHeadline.copyWith(
+            fontSize: 14,
+            letterSpacing: 4.0,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        actions: [
-          // if (searchCtrl.currentResource != null)
-          //   Padding(
-          //     padding: const EdgeInsets.only(right: 16),
-          //     child: InkWell(
-          //       onTap: () => _navigateToPreview(context),
-          //       borderRadius: BorderRadius.circular(20),
-          //       child: Container(
-          //         padding: const EdgeInsets.symmetric(
-          //           horizontal: 10,
-          //           vertical: 4,
-          //         ),
-          //         decoration: BoxDecoration(
-          //           color: AppColors.accent.withValues(alpha: 0.15),
-          //           borderRadius: BorderRadius.circular(20),
-          //           border: Border.all(color: AppColors.accent, width: 1),
-          //         ),
-          //         child: Row(
-          //           mainAxisSize: MainAxisSize.min,
-          //           children: [
-          //             const Icon(
-          //               Icons.smart_display_rounded,
-          //               size: 14,
-          //               color: AppColors.accentBright,
-          //             ),
-          //             const SizedBox(width: 5),
-          //             Text(
-          //               'Preview',
-          //               style: AppStyles.monoAccent.copyWith(
-          //                 fontSize: 11,
-          //                 fontWeight: FontWeight.w700,
-          //               ),
-          //             ),
-          //           ],
-          //         ),
-          //       ),
-          //     ),
-          //   ),
-        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: AppColors.border),
+        ),
       ),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
+            constraints: const BoxConstraints(maxWidth: 540),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Minimalist Brand Hero
+                // Minimalist Monochrome Brand Mark
                 Container(
-                  width: 84,
-                  height: 84,
+                  width: 72,
+                  height: 72,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: AppColors.borderLight, width: 1),
                   ),
                   child: Image.asset(
                     'assets/icons/ramen_icon.png',
                     fit: BoxFit.contain,
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 20),
                 Text(
-                  'R . A . M . E . N',
-                  style: AppStyles.titleMedium.copyWith(
-                    fontSize: 20,
-                    letterSpacing: -0.5,
+                  'MEDIA EXTRACTOR',
+                  style: AppStyles.monoHeadline.copyWith(
+                    fontSize: 12,
+                    letterSpacing: 3.0,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '-----Built with ❤️ by @ToM-----',
+                  'Minimalist video, audio & live stream downloader',
                   style: AppStyles.caption.copyWith(
                     color: AppColors.textSecondary,
+                    letterSpacing: 0.2,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
 
                 // Active Media Preview Resume Banner
                 if (searchCtrl.currentResource != null) ...[
                   _buildActivePreviewBanner(context, searchCtrl),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 16),
                 ],
 
                 // Core Searchbox Component
                 _buildSearchBox(context, searchCtrl),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
 
                 // Inspect & Preview Button
                 _buildInspectButton(context, searchCtrl),
@@ -187,16 +140,10 @@ class _HomeViewState extends State<HomeView> {
                 // Error Banner
                 if (searchCtrl.errorMessage != null)
                   _buildErrorBanner(
-                    "${searchCtrl.errorMessage!.substring(0, 50)}...",
+                    searchCtrl.errorMessage!.length > 90
+                        ? '${searchCtrl.errorMessage!.substring(0, 90)}...'
+                        : searchCtrl.errorMessage!,
                   ),
-
-                // Quick Presets & Links
-                // const SizedBox(height: 16),
-                // _buildQuickPresets(searchCtrl),
-                // const SizedBox(height: 28),
-
-                // Engine Capability Badges
-                // _buildArchitectureBadges(),
               ],
             ),
           ),
@@ -212,25 +159,27 @@ class _HomeViewState extends State<HomeView> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.borderLight, width: 1),
       ),
       child: TextField(
         controller: searchCtrl.urlInputController,
-        style: AppStyles.monoSmall.copyWith(fontSize: 14),
+        style: AppStyles.monoSmall.copyWith(
+          fontSize: 13.5,
+          color: AppColors.textPrimary,
+        ),
+        cursorColor: AppColors.accent,
         onSubmitted: (_) => _handleSearch(context, searchCtrl),
         decoration: InputDecoration(
-          hintText: 'Paste video, audio, or playlist URL...',
-          hintStyle: AppStyles.monoLabel.copyWith(
+          hintText: 'Paste URL or search query...',
+          hintStyle: AppStyles.monoSmall.copyWith(
             color: AppColors.textMuted,
-            letterSpacing: .5,
-            wordSpacing: .01,
             fontSize: 13,
           ),
           prefixIcon: const Icon(
-            Icons.search_rounded,
-            color: AppColors.accentBright,
-            size: 20,
+            Icons.north_east_rounded,
+            color: AppColors.textSecondary,
+            size: 18,
           ),
           suffixIcon: Row(
             mainAxisSize: MainAxisSize.min,
@@ -238,8 +187,8 @@ class _HomeViewState extends State<HomeView> {
               if (searchCtrl.urlInputController.text.isNotEmpty)
                 IconButton(
                   icon: const Icon(
-                    Icons.clear_rounded,
-                    size: 18,
+                    Icons.close_rounded,
+                    size: 16,
                     color: AppColors.textMuted,
                   ),
                   onPressed: () => searchCtrl.clearUrl(),
@@ -247,7 +196,7 @@ class _HomeViewState extends State<HomeView> {
               IconButton(
                 icon: const Icon(
                   Icons.content_paste_rounded,
-                  size: 18,
+                  size: 16,
                   color: AppColors.textSecondary,
                 ),
                 tooltip: 'Paste from clipboard',
@@ -259,7 +208,7 @@ class _HomeViewState extends State<HomeView> {
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
-            vertical: 14,
+            vertical: 15,
           ),
         ),
       ),
@@ -271,95 +220,41 @@ class _HomeViewState extends State<HomeView> {
     SearchFormatController searchCtrl,
   ) {
     if (searchCtrl.isLoading) {
-      return Column(
-        children: [
-          Row(
+      return SizedBox(
+        width: double.infinity,
+        height: 48,
+        child: OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            backgroundColor: AppColors.surface,
+            side: const BorderSide(color: AppColors.borderLight, width: 1),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          onPressed: null,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Expanded(
-                child: SizedBox(
-                  height: 48,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      // backgroundColor: AppColors.surfaceElevated,
-                      // foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        // side: const BorderSide(color: AppColors.accent),
-                      ),
-                    ),
-                    onPressed: null,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.accentBright,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'SEARCHING...',
-                          style: AppStyles.monoLabel.copyWith(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+              const SizedBox(
+                width: 15,
+                height: 15,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.8,
+                  color: AppColors.textPrimary,
                 ),
               ),
-              // const SizedBox(width: 10),
-              // SizedBox(
-              //   height: 48,
-              //   child: OutlinedButton.icon(
-              //     onPressed: () => searchCtrl.cancelSearch(),
-              //     style: OutlinedButton.styleFrom(
-              //       foregroundColor: AppColors.error,
-              //       // side: const BorderSide(color: AppColors.error),
-              //       shape: RoundedRectangleBorder(
-              //         borderRadius: BorderRadius.circular(10),
-              //       ),
-              //       backgroundColor: AppColors.surfaceElevated,
-              //     ),
-              //     icon: const Icon(Icons.close_rounded, size: 18),
-              //     label: Text(
-              //       'CANCEL',
-              //       style: AppStyles.monoLabel.copyWith(
-              //         color: AppColors.error,
-              //         fontSize: 11.5,
-              //       ),
-              //     ),
-              //   ),
-              // ),
+              const SizedBox(width: 12),
+              Text(
+                'INSPECTING STREAM',
+                style: AppStyles.monoLabel.copyWith(
+                  color: AppColors.textPrimary,
+                  fontSize: 11.5,
+                  letterSpacing: 1.2,
+                ),
+              ),
             ],
           ),
-          // const SizedBox(height: 8),
-          // Row(
-          //   mainAxisAlignment: MainAxisAlignment.center,
-          //   children: [
-          //     const Icon(
-          //       Icons.bolt_rounded,
-          //       size: 14,
-          //       color: AppColors.accentBright,
-          //     ),
-          //     const SizedBox(width: 4),
-          //     Flexible(
-          //       child: Text(
-          //         'Search continues if you switch tabs or minimize the app',
-          //         style: AppStyles.caption.copyWith(
-          //           color: AppColors.textSecondary,
-          //           fontSize: 11.5,
-          //         ),
-          //         textAlign: TextAlign.center,
-          //       ),
-          //     ),
-          //   ],
-          // ),
-        ],
+        ),
       );
     }
 
@@ -369,24 +264,29 @@ class _HomeViewState extends State<HomeView> {
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.accent,
-          foregroundColor: Colors.white,
+          foregroundColor: AppColors.onAccent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
           ),
-          elevation: 2,
+          elevation: 0,
         ),
         onPressed: () => _handleSearch(context, searchCtrl),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.stream_rounded, size: 18),
+            const Icon(
+              Icons.arrow_forward_rounded,
+              size: 17,
+              color: AppColors.onAccent,
+            ),
             const SizedBox(width: 8),
             Text(
-              'SEARCH',
+              'INSPECT MEDIA',
               style: AppStyles.monoHeadline.copyWith(
-                color: Colors.white,
-                fontSize: 13,
-                letterSpacing: 0.8,
+                color: AppColors.onAccent,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.5,
               ),
             ),
           ],
@@ -398,74 +298,31 @@ class _HomeViewState extends State<HomeView> {
   Widget _buildErrorBanner(String error) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.error),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.borderLight),
       ),
       child: Row(
         children: [
           const Icon(
             Icons.error_outline_rounded,
             color: AppColors.error,
-            size: 18,
+            size: 16,
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               error,
-              style: AppStyles.bodyMedium.copyWith(
-                color: AppColors.textPrimary,
-                fontSize: 12.5,
+              style: AppStyles.monoSmall.copyWith(
+                color: AppColors.textSecondary,
+                fontSize: 11.5,
               ),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildArchitectureBadges() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildBadge('yt-dlp JNI/NDK'),
-          _buildBadge('aria2c 16x Socket'),
-          _buildBadge('FFmpeg Lossless'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBadge(String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 5,
-          height: 5,
-          decoration: const BoxDecoration(
-            color: AppColors.accentBright,
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: AppStyles.monoSmall.copyWith(
-            fontSize: 10.5,
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ],
     );
   }
 
@@ -478,51 +335,42 @@ class _HomeViewState extends State<HomeView> {
       width: double.infinity,
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(4),
-        border: Border(
-          left: BorderSide(color: AppColors.borderLight, width: 4),
-        ),
-        // boxShadow: [
-        //   BoxShadow(
-        //     color: AppColors.accent.withValues(alpha: 0.1),
-        //     blurRadius: 10,
-        //     offset: const Offset(0, 4),
-        //   ),
-        // ],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.borderLight, width: 1),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () => _navigateToPreview(context),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
                 // Thumbnail
                 Container(
-                  width: 52,
-                  height: 52,
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
                     color: AppColors.surfaceElevated,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: AppColors.border),
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(7),
+                    borderRadius: BorderRadius.circular(5),
                     child: res.thumbnail != null
                         ? Image.network(
                             res.thumbnail!,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => const Icon(
                               Icons.movie_outlined,
-                              size: 24,
+                              size: 20,
                               color: AppColors.textMuted,
                             ),
                           )
                         : const Icon(
                             Icons.movie_outlined,
-                            size: 24,
+                            size: 20,
                             color: AppColors.textMuted,
                           ),
                   ),
@@ -542,15 +390,13 @@ class _HomeViewState extends State<HomeView> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: res.isUpcoming
-                                  ? AppColors.warning
-                                  : AppColors.accent,
-                              borderRadius: BorderRadius.circular(4),
+                              color: AppColors.accent,
+                              borderRadius: BorderRadius.circular(3),
                             ),
                             child: Text(
                               res.isPlaylist
                                   ? (res.isSearchResult
-                                        ? 'SEARCH RESULTS'
+                                        ? 'SEARCH'
                                         : 'PLAYLIST')
                                   : (res.isLive
                                         ? '● LIVE'
@@ -558,28 +404,29 @@ class _HomeViewState extends State<HomeView> {
                                               ? 'UPCOMING'
                                               : 'READY')),
                               style: AppStyles.monoSmall.copyWith(
-                                color: res.isUpcoming
-                                    ? Colors.black
-                                    : Colors.white,
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w700,
+                                color: AppColors.onAccent,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
                               ),
                             ),
                           ),
                           if (res.isPlaylist) ...[
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 8),
                             Text(
                               '${searchCtrl.selectedPlaylistEntries.length}/${res.playlistEntries.length} selected',
-                              style: AppStyles.monoAccent.copyWith(
+                              style: AppStyles.monoSmall.copyWith(
                                 fontSize: 10.5,
+                                color: AppColors.textSecondary,
                               ),
                             ),
                           ] else if (searchCtrl.selectedFormat != null) ...[
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 8),
                             Text(
                               searchCtrl.selectedFormat!.displayQuality,
-                              style: AppStyles.monoAccent.copyWith(
+                              style: AppStyles.monoSmall.copyWith(
                                 fontSize: 10.5,
+                                color: AppColors.textSecondary,
                               ),
                             ),
                           ],
@@ -591,6 +438,7 @@ class _HomeViewState extends State<HomeView> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppStyles.bodyMedium.copyWith(
+                          color: AppColors.textPrimary,
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
                         ),
@@ -600,7 +448,7 @@ class _HomeViewState extends State<HomeView> {
                         res.uploader ?? 'Unknown Channel',
                         style: AppStyles.caption.copyWith(
                           fontSize: 11,
-                          color: AppColors.textSecondary,
+                          color: AppColors.textMuted,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -611,16 +459,12 @@ class _HomeViewState extends State<HomeView> {
                 const SizedBox(width: 8),
 
                 // Action Indicator
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  // decoration: BoxDecoration(
-                  //   color: AppColors.accentMuted.withValues(alpha: 0.25),
-                  //   shape: BoxShape.circle,
-                  // ),
-                  child: const Icon(
+                const Padding(
+                  padding: EdgeInsets.all(6),
+                  child: Icon(
                     Icons.arrow_forward_ios_rounded,
-                    size: 14,
-                    color: AppColors.accentBright,
+                    size: 13,
+                    color: AppColors.textPrimary,
                   ),
                 ),
               ],

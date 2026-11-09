@@ -161,7 +161,7 @@ class _CommandPreviewModalState extends State<CommandPreviewModal> {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.accent,
-                  foregroundColor: AppColors.textPrimary,
+                  foregroundColor: AppColors.onAccent,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),

@@ -346,7 +346,7 @@ class FormatSelectorSheet extends StatelessWidget {
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.accent,
-                  foregroundColor: AppColors.textPrimary,
+                  foregroundColor: AppColors.onAccent,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -359,12 +359,16 @@ class FormatSelectorSheet extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.download_rounded, size: 20),
+                    const Icon(
+                      Icons.download_rounded,
+                      size: 20,
+                      color: AppColors.onAccent,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'START DOWNLOAD',
                       style: AppStyles.monoLabel.copyWith(
-                        color: AppColors.textPrimary,
+                        color: AppColors.onAccent,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
                       ),
