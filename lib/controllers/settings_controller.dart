@@ -92,6 +92,16 @@ class SettingsController extends ChangeNotifier {
     }
   }
 
+  Future<String> getCustomCookies() async {
+    return await _nativeBridge.getUserCookies();
+  }
+
+  Future<void> saveCustomCookies(String content) async {
+    final savedPath = await _nativeBridge.saveUserCookies(content);
+    _settings.cookiesFilePath = savedPath;
+    _save();
+  }
+
   void setDownloadDirectory(String dir) {
     _settings.downloadDirectory = dir;
     _save();

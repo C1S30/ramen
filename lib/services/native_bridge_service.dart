@@ -62,6 +62,15 @@ class NativeBridgeService {
 
     // Direct HTTP/HTTPS URL
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      final igMatch = RegExp(
+        r'instagram\.com/(?:reels?|p|tv)/([A-Za-z0-9_-]+)',
+        caseSensitive: false,
+      ).firstMatch(trimmed);
+      if (igMatch != null && !trimmed.contains('/share/')) {
+        final shortcode = igMatch.group(1)!;
+        final kind = trimmed.toLowerCase().contains('/p/') ? 'p' : 'reel';
+        return 'https://www.instagram.com/$kind/$shortcode/';
+      }
       return trimmed;
     }
 
@@ -207,6 +216,55 @@ class NativeBridgeService {
       } catch (_) {}
     }
     return false;
+  }
+
+  /// Saves Netscape cookies.txt content to app storage and returns its file path
+  Future<String> saveUserCookies(String content) async {
+    if (Platform.isAndroid) {
+      try {
+        final path = await _engineChannel.invokeMethod<String>(
+          'saveUserCookies',
+          {'content': content},
+        );
+        return path ?? '';
+      } catch (e) {
+        debugPrint('saveUserCookies error: $e');
+      }
+    }
+    try {
+      final file = File(
+        '${Directory.systemTemp.path}${Platform.pathSeparator}ramen_user_cookies.txt',
+      );
+      if (content.trim().isEmpty) {
+        if (file.existsSync()) file.deleteSync();
+        return '';
+      }
+      final normalized = content.trim().startsWith('# Netscape HTTP Cookie File')
+          ? content.trim()
+          : '# Netscape HTTP Cookie File\n${content.trim()}\n';
+      await file.writeAsString(normalized);
+      return file.path;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// Reads saved user cookies.txt content if any
+  Future<String> getUserCookies() async {
+    if (Platform.isAndroid) {
+      try {
+        return await _engineChannel.invokeMethod<String>('getUserCookies') ?? '';
+      } catch (_) {
+        return '';
+      }
+    }
+    try {
+      final file = File(
+        '${Directory.systemTemp.path}${Platform.pathSeparator}ramen_user_cookies.txt',
+      );
+      if (file.existsSync()) return await file.readAsString();
+    } catch (_) {}
+    return '';
   }
 
   /// Retrieves any URL shared to the app via Android ACTION_SEND intent

@@ -106,7 +106,7 @@ class _RootNavigationViewState extends State<RootNavigationView>
         isActiveTab: () => _currentIndex == 0,
       ),
       DownloadsView(onNewDownloadRequested: () => _onTabSelected(0)),
-      const TemplateEditorView(),
+      // const TemplateEditorView(),
       const SettingsView(),
     ];
 
@@ -159,26 +159,14 @@ class _RootNavigationViewState extends State<RootNavigationView>
             }),
           ),
           child: NavigationBar(
+            height: 60,
+            indicatorShape: null,
             selectedIndex: _currentIndex,
             onDestinationSelected: _onTabSelected,
             destinations: [
               NavigationDestination(
-                icon: Badge(
-                  isLabelVisible: isSearching || hasUnreadSearch,
-                  backgroundColor: isSearching
-                      ? AppColors.warning
-                      : AppColors.success,
-                  label: Text(isSearching ? '•••' : '1'),
-                  child: const Icon(Icons.search_rounded),
-                ),
-                selectedIcon: Badge(
-                  isLabelVisible: isSearching || hasUnreadSearch,
-                  backgroundColor: isSearching
-                      ? AppColors.warning
-                      : AppColors.success,
-                  label: Text(isSearching ? '•••' : '1'),
-                  child: const Icon(Icons.search_rounded),
-                ),
+                icon: const Icon(Icons.search_rounded),
+                // selectedIcon: const Icon(Icons.search_rounded),
                 label: 'Search',
               ),
               NavigationDestination(
@@ -186,24 +174,18 @@ class _RootNavigationViewState extends State<RootNavigationView>
                   isLabelVisible: activeCount > 0,
                   label: Text('$activeCount'),
                   backgroundColor: AppColors.accent,
-                  child: const Icon(Icons.download_rounded),
+                  child: const Icon(Icons.downloading_rounded),
                 ),
-                selectedIcon: Badge(
-                  isLabelVisible: activeCount > 0,
-                  label: Text('$activeCount'),
-                  backgroundColor: AppColors.accent,
-                  child: const Icon(Icons.download_rounded),
-                ),
+                selectedIcon: const Icon(Icons.downloading_rounded),
                 label: 'Downloads',
               ),
-              const NavigationDestination(
-                icon: Icon(Icons.terminal_rounded),
-                selectedIcon: Icon(Icons.terminal_rounded),
-                label: 'Templates',
-              ),
+              // const NavigationDestination(
+              //   icon: Icon(Icons.terminal_rounded),
+              //   selectedIcon: Icon(Icons.terminal_rounded),
+              //   label: 'Templates',
+              // ),
               const NavigationDestination(
                 icon: Icon(Icons.settings_outlined),
-                selectedIcon: Icon(Icons.settings_rounded),
                 label: 'Settings',
               ),
             ],
@@ -283,8 +265,8 @@ class _RootNavigationViewState extends State<RootNavigationView>
               children: [
                 Text(
                   isDownloading
-                      ? 'DOWNLOADING${activeDownloads.length > 1 ? ' (${activeDownloads.length})' : ''} • ${downloadProgress.toStringAsFixed(1)}%${primaryTask!.speed.isNotEmpty ? ' • ${primaryTask.speed}' : ''}${primaryTask.eta.isNotEmpty && primaryTask.eta != '0' ? ' • ETA ${primaryTask.eta}' : ''}'
-                      : (isSearching ? 'SEARCHING...' : 'SEARCH COMPLETED'),
+                      ? 'DOWNLOADING${activeDownloads.length > 1 ? ' (${activeDownloads.length})' : ''} • ${downloadProgress.toStringAsFixed(1)}%${primaryTask!.speed.isNotEmpty ? ' • ${primaryTask.speed}' : ''}'
+                      : (isSearching ? 'SEARCHING...' : 'SUCCESS!'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppStyles.monoSmall.copyWith(
@@ -322,6 +304,7 @@ class _RootNavigationViewState extends State<RootNavigationView>
                       minHeight: 3,
                       backgroundColor: AppColors.border,
                       color: AppColors.accentBright,
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ],
@@ -334,10 +317,7 @@ class _RootNavigationViewState extends State<RootNavigationView>
               onPressed: () => downloadCtrl.cancelTask(primaryTask!.id),
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.error,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 6,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
@@ -350,33 +330,33 @@ class _RootNavigationViewState extends State<RootNavigationView>
                 ),
               ),
             ),
-            if (_currentIndex != 1) ...[
-              const SizedBox(width: 4),
-              ElevatedButton(
-                onPressed: () => _onTabSelected(1),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-                child: Text(
-                  'QUEUE',
-                  style: AppStyles.monoSmall.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 10.5,
-                  ),
-                ),
-              ),
-            ],
+            // if (_currentIndex != 1) ...[
+            //   const SizedBox(width: 4),
+            //   ElevatedButton(
+            //     onPressed: () => _onTabSelected(1),
+            //     style: ElevatedButton.styleFrom(
+            //       backgroundColor: AppColors.accent,
+            //       foregroundColor: Colors.white,
+            //       padding: const EdgeInsets.symmetric(
+            //         horizontal: 10,
+            //         vertical: 6,
+            //       ),
+            //       minimumSize: Size.zero,
+            //       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            //       shape: RoundedRectangleBorder(
+            //         borderRadius: BorderRadius.circular(6),
+            //       ),
+            //     ),
+            //     child: Text(
+            //       'QUEUE',
+            //       style: AppStyles.monoSmall.copyWith(
+            //         color: Colors.white,
+            //         fontWeight: FontWeight.w700,
+            //         fontSize: 10.5,
+            //       ),
+            //     ),
+            //   ),
+            // ],
           ] else if (isSearching)
             TextButton(
               onPressed: () => searchCtrl.cancelSearch(),

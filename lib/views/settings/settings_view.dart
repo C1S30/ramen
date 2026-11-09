@@ -19,9 +19,14 @@ class SettingsView extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
+        centerTitle: true,
         title: Text(
-          'SETTINGS',
-          style: AppStyles.titleMedium.copyWith(letterSpacing: 1.2),
+          '- SETTINGS -',
+          style: AppStyles.monoHeadline.copyWith(
+            fontSize: 18,
+            letterSpacing: 1.5,
+            fontWeight: FontWeight.w800,
+          ),
         ),
       ),
       body: SingleChildScrollView(
@@ -41,8 +46,10 @@ class SettingsView extends StatelessWidget {
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   activeColor: AppColors.accent,
-                  title: Text('Use aria2c Multi-Connection',
-                      style: AppStyles.bodyLarge),
+                  title: Text(
+                    'Use aria2c Multi-Connection',
+                    style: AppStyles.bodyLarge,
+                  ),
                   subtitle: Text(
                     'Accelerates downloads with parallel sockets',
                     style: AppStyles.bodyMedium,
@@ -55,10 +62,14 @@ class SettingsView extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Parallel Connections per Server',
-                        style: AppStyles.bodyLarge),
-                    Text('${settings.aria2Threads} threads',
-                        style: AppStyles.monoAccent),
+                    Text(
+                      'Parallel Connections per Server',
+                      style: AppStyles.bodyLarge,
+                    ),
+                    Text(
+                      '${settings.aria2Threads} threads',
+                      style: AppStyles.monoAccent,
+                    ),
                   ],
                 ),
                 Slider(
@@ -75,10 +86,14 @@ class SettingsView extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Max Concurrent Downloads',
-                        style: AppStyles.bodyLarge),
-                    Text('${settings.maxConcurrentDownloads} tasks',
-                        style: AppStyles.monoAccent),
+                    Text(
+                      'Max Concurrent Downloads',
+                      style: AppStyles.bodyLarge,
+                    ),
+                    Text(
+                      '${settings.maxConcurrentDownloads} tasks',
+                      style: AppStyles.monoAccent,
+                    ),
                   ],
                 ),
                 Slider(
@@ -88,7 +103,8 @@ class SettingsView extends StatelessWidget {
                   divisions: 4,
                   activeColor: AppColors.accent,
                   inactiveColor: AppColors.surfaceHighlight,
-                  onChanged: (val) => settingsCtrl.setMaxConcurrent(val.round()),
+                  onChanged: (val) =>
+                      settingsCtrl.setMaxConcurrent(val.round()),
                 ),
               ],
             ),
@@ -102,11 +118,15 @@ class SettingsView extends StatelessWidget {
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   activeColor: AppColors.accent,
-                  title: Text('Download on Wi-Fi Only',
-                      style: AppStyles.bodyLarge),
+                  title: Text(
+                    'Download on Wi-Fi Only',
+                    style: AppStyles.bodyLarge,
+                  ),
                   subtitle: Text(
                     'Prevents accidental cellular data usage',
-                    style: AppStyles.bodyMedium,
+                    style: AppStyles.monoLabel.copyWith(
+                      color: AppStyles.monoSmall.color,
+                    ),
                   ),
                   value: settings.wifiOnly,
                   onChanged: (val) => settingsCtrl.toggleWifiOnly(val),
@@ -119,10 +139,14 @@ class SettingsView extends StatelessWidget {
                     settings.downloadDirectory.isNotEmpty
                         ? settings.downloadDirectory
                         : 'Download/Ramen',
-                    style: AppStyles.monoSmall.copyWith(color: AppColors.accentBright),
+                    style: AppStyles.monoSmall.copyWith(
+                      color: AppColors.accentBright,
+                    ),
                   ),
-                  trailing: const Icon(Icons.folder_open_rounded,
-                      color: AppColors.textSecondary),
+                  trailing: const Icon(
+                    Icons.folder_open_rounded,
+                    color: AppColors.textSecondary,
+                  ),
                   onTap: () => _showEditDirectoryDialog(context, settingsCtrl),
                 ),
               ],
@@ -138,12 +162,14 @@ class SettingsView extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   activeColor: AppColors.accent,
                   title: Text(
-                    'Background Downloading & Searching',
+                    'Background Processing',
                     style: AppStyles.bodyLarge,
                   ),
                   subtitle: Text(
-                    'Keep searches and downloads running with CPU & Wi-Fi locks when the app is minimized or the screen is off',
-                    style: AppStyles.bodyMedium,
+                    'Allow running in the background when minimized',
+                    style: AppStyles.monoLabel.copyWith(
+                      color: AppStyles.monoSmall.color,
+                    ),
                   ),
                   value: settings.enableBackgroundProcessing,
                   onChanged: (val) =>
@@ -153,13 +179,12 @@ class SettingsView extends StatelessWidget {
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   activeColor: AppColors.accent,
-                  title: Text(
-                    'Background Notifications',
-                    style: AppStyles.bodyLarge,
-                  ),
+                  title: Text('Notifications', style: AppStyles.bodyLarge),
                   subtitle: Text(
                     'Show live progress and completion alerts while Ramen is in the background',
-                    style: AppStyles.bodyMedium,
+                    style: AppStyles.monoLabel.copyWith(
+                      color: AppStyles.monoSmall.color,
+                    ),
                   ),
                   value: settings.backgroundNotifications,
                   onChanged: settings.enableBackgroundProcessing
@@ -175,9 +200,9 @@ class SettingsView extends StatelessWidget {
                   ),
                   subtitle: Text(
                     settingsCtrl.isIgnoringBatteryOptimizations
-                        ? 'Unrestricted — Android will not throttle background jobs'
+                        ? 'Android will not throttle background jobs'
                         : 'Tap to exempt Ramen from Android battery optimization',
-                    style: AppStyles.bodyMedium.copyWith(
+                    style: AppStyles.monoLabel.copyWith(
                       color: settingsCtrl.isIgnoringBatteryOptimizations
                           ? AppColors.success
                           : AppColors.warning,
@@ -206,8 +231,10 @@ class SettingsView extends StatelessWidget {
               children: [
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text('Preferred Audio Format',
-                      style: AppStyles.bodyLarge),
+                  title: Text(
+                    'Preferred Audio Format',
+                    style: AppStyles.bodyLarge,
+                  ),
                   trailing: DropdownButton<String>(
                     dropdownColor: AppColors.surfaceElevated,
                     value: settings.defaultAudioFormat,
@@ -215,7 +242,10 @@ class SettingsView extends StatelessWidget {
                     items: ['m4a', 'mp3', 'flac', 'opus'].map((fmt) {
                       return DropdownMenuItem(
                         value: fmt,
-                        child: Text(fmt.toUpperCase(), style: AppStyles.monoLabel),
+                        child: Text(
+                          fmt.toUpperCase(),
+                          style: AppStyles.monoLabel,
+                        ),
                       );
                     }).toList(),
                     onChanged: (val) {
@@ -228,8 +258,10 @@ class SettingsView extends StatelessWidget {
                 const Divider(),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text('Preferred Video Container',
-                      style: AppStyles.bodyLarge),
+                  title: Text(
+                    'Preferred Video Container',
+                    style: AppStyles.bodyLarge,
+                  ),
                   trailing: DropdownButton<String>(
                     dropdownColor: AppColors.surfaceElevated,
                     value: settings.defaultVideoContainer,
@@ -237,7 +269,10 @@ class SettingsView extends StatelessWidget {
                     items: ['mp4', 'mkv', 'webm'].map((fmt) {
                       return DropdownMenuItem(
                         value: fmt,
-                        child: Text(fmt.toUpperCase(), style: AppStyles.monoLabel),
+                        child: Text(
+                          fmt.toUpperCase(),
+                          style: AppStyles.monoLabel,
+                        ),
                       );
                     }).toList(),
                     onChanged: (val) {
@@ -252,15 +287,18 @@ class SettingsView extends StatelessWidget {
             const SizedBox(height: 24),
 
             // 403 Forbidden & Seal Anti-Block Measures
-            _buildSectionHeader('403 FORBIDDEN & BOT-CHECK BYPASS'),
+            _buildSectionHeader('FORBIDDEN & BOT-CHECK BYPASS'),
             const SizedBox(height: 10),
             _buildSettingCard(
               children: [
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text('yt-dlp Update Channel', style: AppStyles.bodyLarge),
+                  title: Text(
+                    'yt-dlp Update Channel',
+                    style: AppStyles.bodyLarge,
+                  ),
                   subtitle: Text(
-                    'Nightly builds include the latest YouTube player & nsig fixes',
+                    'Toggle between Nightly and Stable releases',
                     style: AppStyles.caption,
                   ),
                   trailing: DropdownButton<String>(
@@ -272,10 +310,7 @@ class SettingsView extends StatelessWidget {
                         value: 'nightly',
                         child: Text('NIGHTLY'),
                       ),
-                      DropdownMenuItem(
-                        value: 'stable',
-                        child: Text('STABLE'),
-                      ),
+                      DropdownMenuItem(value: 'stable', child: Text('STABLE')),
                     ],
                     style: AppStyles.monoLabel,
                     onChanged: (val) {
@@ -302,6 +337,30 @@ class SettingsView extends StatelessWidget {
                         : () => settingsCtrl.refreshSilentCookies(),
                     child: Text('SYNC NOW', style: AppStyles.monoAccent),
                   ),
+                ),
+                const Divider(),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    'Import Cookies (cookies.txt)',
+                    style: AppStyles.bodyLarge,
+                  ),
+                  subtitle: Text(
+                    settings.cookiesFilePath.isNotEmpty
+                        ? 'Authenticated cookies.txt active for Instagram / YouTube'
+                        : 'Paste Netscape cookies.txt for age-gated or private Instagram posts',
+                    style: AppStyles.caption.copyWith(
+                      color: settings.cookiesFilePath.isNotEmpty
+                          ? AppColors.success
+                          : AppColors.textSecondary,
+                    ),
+                  ),
+                  trailing: const Icon(
+                    Icons.cookie_outlined,
+                    size: 18,
+                    color: AppColors.accentBright,
+                  ),
+                  onTap: () => _showEditCookiesDialog(context, settingsCtrl),
                 ),
                 const Divider(),
                 SwitchListTile(
@@ -391,13 +450,19 @@ class SettingsView extends StatelessWidget {
                       color: AppColors.accentBright,
                     ),
                   ),
-                  title: Text('Interactive yt-dlp Suite', style: AppStyles.bodyLarge),
+                  title: Text(
+                    'Interactive yt-dlp Suite',
+                    style: AppStyles.bodyLarge,
+                  ),
                   subtitle: Text(
                     'Full visual editor for aria2c, proxy, cookies & CLI flags',
                     style: AppStyles.caption,
                   ),
-                  trailing: const Icon(Icons.arrow_forward_ios_rounded,
-                      size: 14, color: AppColors.textMuted),
+                  trailing: const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 14,
+                    color: AppColors.textMuted,
+                  ),
                   onTap: () {
                     showModalBottomSheet(
                       context: context,
@@ -418,62 +483,99 @@ class SettingsView extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   activeColor: AppColors.accent,
                   title: Text('Embed Subtitles', style: AppStyles.bodyLarge),
-                  subtitle: Text('Embeds subs into MP4/MKV video stream', style: AppStyles.caption),
+                  subtitle: Text(
+                    'Embeds subs into MP4/MKV video stream',
+                    style: AppStyles.caption,
+                  ),
                   value: settings.embedSubtitles,
-                  onChanged: (val) =>
-                      settingsCtrl.updateSettings(settings.copyWith(embedSubtitles: val)),
+                  onChanged: (val) => settingsCtrl.updateSettings(
+                    settings.copyWith(embedSubtitles: val),
+                  ),
                 ),
                 const Divider(),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   activeColor: AppColors.accent,
-                  title: Text('Embed Thumbnail & Artwork', style: AppStyles.bodyLarge),
-                  subtitle: Text('Attach cover image to media tags', style: AppStyles.caption),
+                  title: Text(
+                    'Embed Thumbnail & Artwork',
+                    style: AppStyles.bodyLarge,
+                  ),
+                  subtitle: Text(
+                    'Attach cover image to media tags',
+                    style: AppStyles.caption,
+                  ),
                   value: settings.embedThumbnail,
-                  onChanged: (val) =>
-                      settingsCtrl.updateSettings(settings.copyWith(embedThumbnail: val)),
+                  onChanged: (val) => settingsCtrl.updateSettings(
+                    settings.copyWith(embedThumbnail: val),
+                  ),
                 ),
                 const Divider(),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   activeColor: AppColors.accent,
-                  title: Text('Embed Chapters & Metadata', style: AppStyles.bodyLarge),
-                  subtitle: Text('Writes artist, title and chapter intervals', style: AppStyles.caption),
+                  title: Text(
+                    'Embed Chapters & Metadata',
+                    style: AppStyles.bodyLarge,
+                  ),
+                  subtitle: Text(
+                    'Writes artist, title and chapter intervals',
+                    style: AppStyles.caption,
+                  ),
                   value: settings.embedChapters,
-                  onChanged: (val) =>
-                      settingsCtrl.updateSettings(settings.copyWith(embedChapters: val, embedMetadata: val)),
+                  onChanged: (val) => settingsCtrl.updateSettings(
+                    settings.copyWith(embedChapters: val, embedMetadata: val),
+                  ),
                 ),
                 const Divider(),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   activeColor: AppColors.accent,
-                  title: Text('SponsorBlock (Auto-Skip)', style: AppStyles.bodyLarge),
-                  subtitle: Text('Removes sponsor segments and filler intros', style: AppStyles.caption),
+                  title: Text(
+                    'SponsorBlock (Auto-Skip)',
+                    style: AppStyles.bodyLarge,
+                  ),
+                  subtitle: Text(
+                    'Removes sponsor segments and filler intros',
+                    style: AppStyles.caption,
+                  ),
                   value: settings.enableSponsorBlock,
-                  onChanged: (val) =>
-                      settingsCtrl.updateSettings(settings.copyWith(enableSponsorBlock: val)),
+                  onChanged: (val) => settingsCtrl.updateSettings(
+                    settings.copyWith(enableSponsorBlock: val),
+                  ),
                 ),
                 const Divider(),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   activeColor: AppColors.accent,
                   title: Text('Geographic Bypass', style: AppStyles.bodyLarge),
-                  subtitle: Text('Bypasses geographical restrictions', style: AppStyles.caption),
+                  subtitle: Text(
+                    'Bypasses geographical restrictions',
+                    style: AppStyles.caption,
+                  ),
                   value: settings.geoBypass,
-                  onChanged: (val) =>
-                      settingsCtrl.updateSettings(settings.copyWith(geoBypass: val)),
+                  onChanged: (val) => settingsCtrl.updateSettings(
+                    settings.copyWith(geoBypass: val),
+                  ),
                 ),
                 const Divider(),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text('Network Proxy', style: AppStyles.bodyLarge),
                   subtitle: Text(
-                    settings.proxy.isNotEmpty ? settings.proxy : 'Direct connection (No proxy)',
+                    settings.proxy.isNotEmpty
+                        ? settings.proxy
+                        : 'Direct connection (No proxy)',
                     style: AppStyles.monoSmall.copyWith(
-                      color: settings.proxy.isNotEmpty ? AppColors.accentBright : AppColors.textMuted,
+                      color: settings.proxy.isNotEmpty
+                          ? AppColors.accentBright
+                          : AppColors.textMuted,
                     ),
                   ),
-                  trailing: const Icon(Icons.edit_outlined, size: 18, color: AppColors.textSecondary),
+                  trailing: const Icon(
+                    Icons.edit_outlined,
+                    size: 18,
+                    color: AppColors.textSecondary,
+                  ),
                   onTap: () => _showEditProxyDialog(context, settingsCtrl),
                 ),
                 const Divider(),
@@ -481,25 +583,44 @@ class SettingsView extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   title: Text('Rate Limit', style: AppStyles.bodyLarge),
                   subtitle: Text(
-                    settings.rateLimit.isNotEmpty ? settings.rateLimit : 'Unlimited bandwidth',
+                    settings.rateLimit.isNotEmpty
+                        ? settings.rateLimit
+                        : 'Unlimited bandwidth',
                     style: AppStyles.monoSmall.copyWith(
-                      color: settings.rateLimit.isNotEmpty ? AppColors.accentBright : AppColors.textMuted,
+                      color: settings.rateLimit.isNotEmpty
+                          ? AppColors.accentBright
+                          : AppColors.textMuted,
                     ),
                   ),
-                  trailing: const Icon(Icons.edit_outlined, size: 18, color: AppColors.textSecondary),
+                  trailing: const Icon(
+                    Icons.edit_outlined,
+                    size: 18,
+                    color: AppColors.textSecondary,
+                  ),
                   onTap: () => _showEditRateLimitDialog(context, settingsCtrl),
                 ),
                 const Divider(),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text('Custom yt-dlp Flags', style: AppStyles.bodyLarge),
+                  title: Text(
+                    'Custom yt-dlp Flags',
+                    style: AppStyles.bodyLarge,
+                  ),
                   subtitle: Text(
-                    settings.rawCustomArgs.isNotEmpty ? settings.rawCustomArgs : 'None specified',
+                    settings.rawCustomArgs.isNotEmpty
+                        ? settings.rawCustomArgs
+                        : 'None specified',
                     style: AppStyles.monoSmall.copyWith(
-                      color: settings.rawCustomArgs.isNotEmpty ? AppColors.accentBright : AppColors.textMuted,
+                      color: settings.rawCustomArgs.isNotEmpty
+                          ? AppColors.accentBright
+                          : AppColors.textMuted,
                     ),
                   ),
-                  trailing: const Icon(Icons.edit_outlined, size: 18, color: AppColors.textSecondary),
+                  trailing: const Icon(
+                    Icons.edit_outlined,
+                    size: 18,
+                    color: AppColors.textSecondary,
+                  ),
                   onTap: () => _showEditRawFlagsDialog(context, settingsCtrl),
                 ),
               ],
@@ -511,7 +632,7 @@ class SettingsView extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    'RAMEN v1.0.0',
+                    'RAMEN v2.0.0',
                     style: AppStyles.monoLabel.copyWith(
                       color: AppColors.textMuted,
                       letterSpacing: 1.5,
@@ -519,7 +640,7 @@ class SettingsView extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Strict Minimalist Dark Architecture • 70-30-10 Design',
+                    'Built with ❤️ by ToM • ©️ ramen.inc',
                     style: AppStyles.caption,
                   ),
                 ],
@@ -569,7 +690,7 @@ class SettingsView extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('EMBEDDED TOOLCHAIN', style: AppStyles.caption),
+              Text('ENGINES & MODULES', style: AppStyles.caption),
               if (controller.isUpdating)
                 Row(
                   children: [
@@ -586,35 +707,47 @@ class SettingsView extends StatelessWidget {
                   ],
                 )
               else
-                InkWell(
-                  onTap: () => controller.updateEngine(),
-                  child: Text('Check for Updates', style: AppStyles.monoAccent),
+                Material(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadiusGeometry.circular(5),
+                  ),
+                  color: AppColors.border,
+
+                  child: InkWell(
+                    customBorder: RoundedRectangleBorder(
+                      borderRadius: BorderRadiusGeometry.circular(5),
+                    ),
+                    onTap: () => controller.updateEngine(),
+                    child: Text(
+                      'Check for Updates',
+                      style: AppStyles.monoAccent,
+                    ),
+                  ),
                 ),
             ],
           ),
           const SizedBox(height: 14),
 
-          _buildEngineRow('yt-dlp Engine', versions['ytdlp'] ?? 'Checking...'),
+          _buildEngineRow('*yt-dlp Engine', versions['ytdlp'] ?? 'Checking...'),
           const Divider(height: 16),
-          _buildEngineRow('FFmpeg Muxer', versions['ffmpeg'] ?? 'Checking...'),
+          _buildEngineRow('*FFmpeg Muxer', versions['ffmpeg'] ?? 'Checking...'),
           const Divider(height: 16),
-          _buildEngineRow('aria2c Downloader', versions['aria2c'] ?? 'Checking...'),
+          _buildEngineRow(
+            '*aria2c Downloader',
+            versions['aria2c'] ?? 'Checking...',
+          ),
           const Divider(height: 16),
-          _buildEngineRow('Node.js Runtime', versions['node'] ?? 'Checking...'),
+          _buildEngineRow(
+            '*Node.js Runtime',
+            versions['node'] ?? 'Checking...',
+          ),
 
           if (controller.updateMessage != null) ...[
             const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.accent),
-              ),
-              child: Text(
-                controller.updateMessage!,
-                style: AppStyles.monoSmall.copyWith(color: AppColors.accentBright),
+            Text(
+              controller.updateMessage!,
+              style: AppStyles.monoSmall.copyWith(
+                color: AppColors.accentBright,
               ),
             ),
           ],
@@ -633,8 +766,13 @@ class SettingsView extends StatelessWidget {
     );
   }
 
-  void _showEditDirectoryDialog(BuildContext context, SettingsController controller) {
-    final textController = TextEditingController(text: controller.settings.downloadDirectory);
+  void _showEditDirectoryDialog(
+    BuildContext context,
+    SettingsController controller,
+  ) {
+    final textController = TextEditingController(
+      text: controller.settings.downloadDirectory,
+    );
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -643,12 +781,18 @@ class SettingsView extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           side: const BorderSide(color: AppColors.border),
         ),
-        title: Text('Download Directory', style: AppStyles.titleMedium.copyWith(fontSize: 16)),
+        title: Text(
+          'Download Directory',
+          style: AppStyles.titleMedium.copyWith(fontSize: 16),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Specify directory path for media outputs:', style: AppStyles.caption),
+            Text(
+              'Specify directory path for media outputs:',
+              style: AppStyles.caption,
+            ),
             const SizedBox(height: 10),
             TextField(
               controller: textController,
@@ -657,7 +801,9 @@ class SettingsView extends StatelessWidget {
                 filled: true,
                 fillColor: AppColors.surfaceElevated,
                 hintText: 'Download/Ramen',
-                hintStyle: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
+                hintStyle: AppStyles.monoSmall.copyWith(
+                  color: AppColors.textMuted,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(color: AppColors.border),
@@ -666,8 +812,17 @@ class SettingsView extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             TextButton.icon(
-              icon: const Icon(Icons.restore_rounded, size: 16, color: AppColors.accentBright),
-              label: Text('Reset to Download/Ramen', style: AppStyles.monoSmall.copyWith(color: AppColors.accentBright)),
+              icon: const Icon(
+                Icons.restore_rounded,
+                size: 16,
+                color: AppColors.accentBright,
+              ),
+              label: Text(
+                'Reset to Download/Ramen',
+                style: AppStyles.monoSmall.copyWith(
+                  color: AppColors.accentBright,
+                ),
+              ),
               onPressed: () => textController.text = 'Download/Ramen',
             ),
           ],
@@ -675,7 +830,10 @@ class SettingsView extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('Cancel', style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted)),
+            child: Text(
+              'Cancel',
+              style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -684,18 +842,28 @@ class SettingsView extends StatelessWidget {
             ),
             onPressed: () {
               final newDir = textController.text.trim();
-              controller.setDownloadDirectory(newDir.isEmpty ? 'Download/Ramen' : newDir);
+              controller.setDownloadDirectory(
+                newDir.isEmpty ? 'Download/Ramen' : newDir,
+              );
               Navigator.of(ctx).pop();
             },
-            child: Text('Save', style: AppStyles.monoSmall.copyWith(color: Colors.white)),
+            child: Text(
+              'Save',
+              style: AppStyles.monoSmall.copyWith(color: Colors.white),
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _showEditProxyDialog(BuildContext context, SettingsController controller) {
-    final textController = TextEditingController(text: controller.settings.proxy);
+  void _showEditProxyDialog(
+    BuildContext context,
+    SettingsController controller,
+  ) {
+    final textController = TextEditingController(
+      text: controller.settings.proxy,
+    );
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -704,7 +872,10 @@ class SettingsView extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           side: const BorderSide(color: AppColors.border),
         ),
-        title: Text('Network Proxy', style: AppStyles.titleMedium.copyWith(fontSize: 16)),
+        title: Text(
+          'Network Proxy',
+          style: AppStyles.titleMedium.copyWith(fontSize: 16),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -718,7 +889,9 @@ class SettingsView extends StatelessWidget {
                 filled: true,
                 fillColor: AppColors.surfaceElevated,
                 hintText: 'socks5://127.0.0.1:1080',
-                hintStyle: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
+                hintStyle: AppStyles.monoSmall.copyWith(
+                  color: AppColors.textMuted,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(color: AppColors.border),
@@ -730,7 +903,10 @@ class SettingsView extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('Cancel', style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted)),
+            child: Text(
+              'Cancel',
+              style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -739,18 +915,28 @@ class SettingsView extends StatelessWidget {
             ),
             onPressed: () {
               final newProxy = textController.text.trim();
-              controller.updateSettings(controller.settings.copyWith(proxy: newProxy));
+              controller.updateSettings(
+                controller.settings.copyWith(proxy: newProxy),
+              );
               Navigator.of(ctx).pop();
             },
-            child: Text('Save', style: AppStyles.monoSmall.copyWith(color: Colors.white)),
+            child: Text(
+              'Save',
+              style: AppStyles.monoSmall.copyWith(color: Colors.white),
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _showEditRateLimitDialog(BuildContext context, SettingsController controller) {
-    final textController = TextEditingController(text: controller.settings.rateLimit);
+  void _showEditRateLimitDialog(
+    BuildContext context,
+    SettingsController controller,
+  ) {
+    final textController = TextEditingController(
+      text: controller.settings.rateLimit,
+    );
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -759,12 +945,18 @@ class SettingsView extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           side: const BorderSide(color: AppColors.border),
         ),
-        title: Text('Speed Rate Limit', style: AppStyles.titleMedium.copyWith(fontSize: 16)),
+        title: Text(
+          'Speed Rate Limit',
+          style: AppStyles.titleMedium.copyWith(fontSize: 16),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Maximum download rate (e.g. 5M, 500K):', style: AppStyles.caption),
+            Text(
+              'Maximum download rate (e.g. 5M, 500K):',
+              style: AppStyles.caption,
+            ),
             const SizedBox(height: 10),
             TextField(
               controller: textController,
@@ -773,7 +965,9 @@ class SettingsView extends StatelessWidget {
                 filled: true,
                 fillColor: AppColors.surfaceElevated,
                 hintText: '5M',
-                hintStyle: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
+                hintStyle: AppStyles.monoSmall.copyWith(
+                  color: AppColors.textMuted,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(color: AppColors.border),
@@ -785,7 +979,10 @@ class SettingsView extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('Cancel', style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted)),
+            child: Text(
+              'Cancel',
+              style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -794,18 +991,28 @@ class SettingsView extends StatelessWidget {
             ),
             onPressed: () {
               final limit = textController.text.trim();
-              controller.updateSettings(controller.settings.copyWith(rateLimit: limit));
+              controller.updateSettings(
+                controller.settings.copyWith(rateLimit: limit),
+              );
               Navigator.of(ctx).pop();
             },
-            child: Text('Save', style: AppStyles.monoSmall.copyWith(color: Colors.white)),
+            child: Text(
+              'Save',
+              style: AppStyles.monoSmall.copyWith(color: Colors.white),
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _showEditRawFlagsDialog(BuildContext context, SettingsController controller) {
-    final textController = TextEditingController(text: controller.settings.rawCustomArgs);
+  Future<void> _showEditCookiesDialog(
+    BuildContext context,
+    SettingsController controller,
+  ) async {
+    final existing = await controller.getCustomCookies();
+    if (!context.mounted) return;
+    final textController = TextEditingController(text: existing);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -814,12 +1021,108 @@ class SettingsView extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           side: const BorderSide(color: AppColors.border),
         ),
-        title: Text('Custom yt-dlp Flags', style: AppStyles.titleMedium.copyWith(fontSize: 16)),
+        title: Text(
+          'Netscape Cookies (cookies.txt)',
+          style: AppStyles.titleMedium.copyWith(fontSize: 16),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Pass raw arguments directly to the yt-dlp binary:', style: AppStyles.caption),
+            Text(
+              'Paste Netscape-formatted cookies.txt content for authenticated Instagram, YouTube, or X access:',
+              style: AppStyles.caption,
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: textController,
+              maxLines: 6,
+              style: AppStyles.monoSmall.copyWith(
+                color: AppColors.textPrimary,
+                fontSize: 11,
+              ),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: AppColors.surfaceElevated,
+                hintText:
+                    '# Netscape HTTP Cookie File\n.instagram.com\tTRUE\t/\tTRUE\t0\tsessionid\t...',
+                hintStyle: AppStyles.monoSmall.copyWith(
+                  color: AppColors.textMuted,
+                  fontSize: 11,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          if (existing.isNotEmpty)
+            TextButton(
+              onPressed: () async {
+                await controller.saveCustomCookies('');
+                if (ctx.mounted) Navigator.of(ctx).pop();
+              },
+              child: Text(
+                'Clear Cookies',
+                style: AppStyles.monoSmall.copyWith(color: AppColors.error),
+              ),
+            ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(
+              'Cancel',
+              style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              await controller.saveCustomCookies(textController.text.trim());
+              if (ctx.mounted) Navigator.of(ctx).pop();
+            },
+            child: Text(
+              'Save',
+              style: AppStyles.monoSmall.copyWith(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditRawFlagsDialog(
+    BuildContext context,
+    SettingsController controller,
+  ) {
+    final textController = TextEditingController(
+      text: controller.settings.rawCustomArgs,
+    );
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        title: Text(
+          'Custom yt-dlp Flags',
+          style: AppStyles.titleMedium.copyWith(fontSize: 16),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Pass raw arguments directly to the yt-dlp binary:',
+              style: AppStyles.caption,
+            ),
             const SizedBox(height: 10),
             TextField(
               controller: textController,
@@ -829,7 +1132,9 @@ class SettingsView extends StatelessWidget {
                 filled: true,
                 fillColor: AppColors.surfaceElevated,
                 hintText: '--no-check-certificates --referer https://...',
-                hintStyle: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
+                hintStyle: AppStyles.monoSmall.copyWith(
+                  color: AppColors.textMuted,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(color: AppColors.border),
@@ -841,7 +1146,10 @@ class SettingsView extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('Cancel', style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted)),
+            child: Text(
+              'Cancel',
+              style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -850,10 +1158,15 @@ class SettingsView extends StatelessWidget {
             ),
             onPressed: () {
               final raw = textController.text.trim();
-              controller.updateSettings(controller.settings.copyWith(rawCustomArgs: raw));
+              controller.updateSettings(
+                controller.settings.copyWith(rawCustomArgs: raw),
+              );
               Navigator.of(ctx).pop();
             },
-            child: Text('Save', style: AppStyles.monoSmall.copyWith(color: Colors.white)),
+            child: Text(
+              'Save',
+              style: AppStyles.monoSmall.copyWith(color: Colors.white),
+            ),
           ),
         ],
       ),

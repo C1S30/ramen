@@ -18,8 +18,12 @@ class DownloadsView extends StatelessWidget {
     final activeTabIndex = downloadCtrl.activeTabIndex;
     final currentTabTasks = downloadCtrl.tasksForCurrentTab;
 
-    final activeTasks = currentTabTasks.where((t) => t.isActive || t.isPaused).toList();
-    final completedTasks = currentTabTasks.where((t) => t.isCompleted || t.isFailed).toList();
+    final activeTasks = currentTabTasks
+        .where((t) => t.isActive || t.isPaused)
+        .toList();
+    final completedTasks = currentTabTasks
+        .where((t) => t.isCompleted || t.isFailed)
+        .toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -27,8 +31,9 @@ class DownloadsView extends StatelessWidget {
         backgroundColor: AppColors.background,
         elevation: 0,
         titleSpacing: 20,
+        centerTitle: true,
         title: Text(
-          'DOWNLOADS',
+          '- DOWNLOADS -',
           style: AppStyles.monoHeadline.copyWith(
             fontSize: 18,
             letterSpacing: 1.5,
@@ -56,7 +61,10 @@ class DownloadsView extends StatelessWidget {
             child: (activeTasks.isEmpty && completedTasks.isEmpty)
                 ? _buildEmptyState(context, downloadCtrl.currentTab.title)
                 : ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
                     children: [
                       // Active Simultaneous Downloads
                       if (activeTasks.isNotEmpty) ...[
@@ -75,14 +83,12 @@ class DownloadsView extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'ACTIVE STREAMS (${activeTasks.length})',
-                                  style: AppStyles.caption.copyWith(letterSpacing: 0.8),
+                                  'DOWNLOADING (${activeTasks.length})',
+                                  style: AppStyles.caption.copyWith(
+                                    letterSpacing: 0.8,
+                                  ),
                                 ),
                               ],
-                            ),
-                            Text(
-                              'Aria2c + FFmpeg Socket',
-                              style: AppStyles.monoSmall.copyWith(fontSize: 10, color: AppColors.textMuted),
                             ),
                           ],
                         ),
@@ -105,11 +111,17 @@ class DownloadsView extends StatelessWidget {
                       if (completedTasks.isNotEmpty) ...[
                         Row(
                           children: [
-                            const Icon(Icons.check_circle_outline_rounded, size: 14, color: AppColors.textSecondary),
+                            const Icon(
+                              Icons.check_circle_outline_rounded,
+                              size: 14,
+                              color: AppColors.textSecondary,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               'FINISHED TASKS (${completedTasks.length})',
-                              style: AppStyles.caption.copyWith(letterSpacing: 0.8),
+                              style: AppStyles.caption.copyWith(
+                                letterSpacing: 0.8,
+                              ),
                             ),
                           ],
                         ),
@@ -162,12 +174,19 @@ class DownloadsView extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
-                        color: isSelected ? AppColors.accentMuted : AppColors.surfaceElevated,
+                        color: isSelected
+                            ? AppColors.accentMuted
+                            : AppColors.surfaceElevated,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: isSelected ? AppColors.accentBright : AppColors.border,
+                          color: isSelected
+                              ? AppColors.accentBright
+                              : AppColors.border,
                           width: 1,
                         ),
                       ),
@@ -188,15 +207,20 @@ class DownloadsView extends StatelessWidget {
                           Text(
                             tab.title as String,
                             style: AppStyles.monoSmall.copyWith(
-                              color: isSelected ? Colors.white : AppColors.textSecondary,
-                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              color: isSelected
+                                  ? Colors.white
+                                  : AppColors.textSecondary,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
                               fontSize: 11,
                             ),
                           ),
                           if (isClosable) ...[
                             const SizedBox(width: 6),
                             GestureDetector(
-                              onTap: () => downloadCtrl.closeTab(tab.id as String),
+                              onTap: () =>
+                                  downloadCtrl.closeTab(tab.id as String),
                               child: const Icon(
                                 Icons.close_rounded,
                                 size: 14,
@@ -257,12 +281,12 @@ class DownloadsView extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             Text(
-              'No Downloads in $tabTitle',
+              'No Downloads found',
               style: AppStyles.titleMedium.copyWith(fontSize: 16),
             ),
             const SizedBox(height: 6),
             Text(
-              'Paste a URL on the home search page to start simultaneous stream downloads.',
+              'Paste a URL in the home page search bar to start downloading.',
               textAlign: TextAlign.center,
               style: AppStyles.caption,
             ),
@@ -275,9 +299,16 @@ class DownloadsView extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   side: const BorderSide(color: AppColors.border),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
               ),
-              icon: const Icon(Icons.add_rounded, size: 18, color: AppColors.accentBright),
+              icon: const Icon(
+                Icons.add_rounded,
+                size: 18,
+                color: AppColors.accentBright,
+              ),
               label: Text('NEW DOWNLOAD', style: AppStyles.monoSmall),
               onPressed: () {
                 onNewDownloadRequested?.call();

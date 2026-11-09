@@ -404,6 +404,7 @@ class _TemplateEditorViewState extends State<TemplateEditorView>
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
+        centerTitle: true,
         title: Text(
           'CLI TEMPLATES',
           style: AppStyles.monoHeadline.copyWith(
@@ -457,12 +458,18 @@ class _TemplateEditorViewState extends State<TemplateEditorView>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.tune_rounded, size: 48, color: AppColors.textMuted),
+            const Icon(
+              Icons.tune_rounded,
+              size: 48,
+              color: AppColors.textMuted,
+            ),
             const SizedBox(height: 12),
             Text('No templates available', style: AppStyles.bodyLarge),
             const SizedBox(height: 12),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accent,
+              ),
               onPressed: () => _tabController.animateTo(1),
               child: const Text('Create First Template'),
             ),
@@ -505,7 +512,9 @@ class _TemplateEditorViewState extends State<TemplateEditorView>
           const SizedBox(height: 6),
           Text(
             'Select yt-dlp arguments as chips across categories to assemble a reusable preset.',
-            style: AppStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+            style: AppStyles.bodyMedium.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
           const SizedBox(height: 16),
 
@@ -517,7 +526,9 @@ class _TemplateEditorViewState extends State<TemplateEditorView>
               labelText: 'Template Name *',
               labelStyle: AppStyles.caption,
               hintText: 'e.g. 1080p High Speed MP4',
-              hintStyle: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
+              hintStyle: AppStyles.monoSmall.copyWith(
+                color: AppColors.textMuted,
+              ),
               filled: true,
               fillColor: AppColors.surface,
               border: OutlineInputBorder(
@@ -539,8 +550,11 @@ class _TemplateEditorViewState extends State<TemplateEditorView>
             decoration: InputDecoration(
               labelText: 'Description (Optional)',
               labelStyle: AppStyles.caption,
-              hintText: 'e.g. 16 fragments with auto-embed metadata and MP4 output',
-              hintStyle: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
+              hintText:
+                  'e.g. 16 fragments with auto-embed metadata and MP4 output',
+              hintStyle: AppStyles.monoSmall.copyWith(
+                color: AppColors.textMuted,
+              ),
               filled: true,
               fillColor: AppColors.surface,
               border: OutlineInputBorder(
@@ -627,7 +641,9 @@ class _TemplateEditorViewState extends State<TemplateEditorView>
               labelText: 'Additional Custom Flags (Optional)',
               labelStyle: AppStyles.caption,
               hintText: 'e.g. --referer https://site.com --no-mtime',
-              hintStyle: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
+              hintStyle: AppStyles.monoSmall.copyWith(
+                color: AppColors.textMuted,
+              ),
               filled: true,
               fillColor: AppColors.surface,
               border: OutlineInputBorder(
@@ -762,7 +778,9 @@ class _TemplateEditorViewState extends State<TemplateEditorView>
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                     side: BorderSide(
-                      color: isSelected ? AppColors.accentBright : AppColors.border,
+                      color: isSelected
+                          ? AppColors.accentBright
+                          : AppColors.border,
                       width: 1,
                     ),
                   ),

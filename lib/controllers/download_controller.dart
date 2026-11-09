@@ -14,7 +14,7 @@ class DownloadController extends ChangeNotifier {
   List<DownloadTask> _allTasks = [];
   final List<DownloadTab> _tabs = [
     const DownloadTab(id: 'tab_all', title: 'All Downloads', isClosable: false),
-    const DownloadTab(id: 'tab_1', title: 'Stream 1', isClosable: true),
+    // const DownloadTab(id: 'tab_1', title: 'Stream 1', isClosable: true),
   ];
   int _activeTabIndex = 0;
   int _tabCounter = 1;
@@ -106,8 +106,12 @@ class DownloadController extends ChangeNotifier {
     for (int i = 0; i < _tabs.length; i++) {
       final tab = _tabs[i];
       if (tab.assignedTaskId != null) {
-        final task = _allTasks.where((t) => t.id == tab.assignedTaskId).firstOrNull;
-        if (task != null && task.title.isNotEmpty && tab.title.startsWith('Stream')) {
+        final task = _allTasks
+            .where((t) => t.id == tab.assignedTaskId)
+            .firstOrNull;
+        if (task != null &&
+            task.title.isNotEmpty &&
+            tab.title.startsWith('Stream')) {
           final cleanTitle = task.title.length > 15
               ? '${task.title.substring(0, 15)}...'
               : task.title;
@@ -116,9 +120,13 @@ class DownloadController extends ChangeNotifier {
       }
 
       if (tab.isClosable) {
-        final linkedTasks = _allTasks.where((t) =>
-            (tab.assignedTaskId != null && t.id == tab.assignedTaskId) ||
-            (t.tabId == tab.id)).toList();
+        final linkedTasks = _allTasks
+            .where(
+              (t) =>
+                  (tab.assignedTaskId != null && t.id == tab.assignedTaskId) ||
+                  (t.tabId == tab.id),
+            )
+            .toList();
 
         if (linkedTasks.isNotEmpty &&
             linkedTasks.every((t) => t.isCompleted || t.isFailed)) {

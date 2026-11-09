@@ -66,19 +66,20 @@ class _HomeViewState extends State<HomeView> {
         elevation: 0,
         titleSpacing: 20,
         title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: Image.asset(
-                'assets/icons/ramen_icon.png',
-                width: 28,
-                height: 28,
-                fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(width: 10),
+            // ClipRRect(
+            //   borderRadius: BorderRadius.circular(6),
+            //   child: Image.asset(
+            //     'assets/icons/ramen_icon.png',
+            //     width: 28,
+            //     height: 28,
+            //     fit: BoxFit.contain,
+            //   ),
+            // ),
+            // const SizedBox(width: 10),
             Text(
-              'RAMEN',
+              '- RAMEN -',
               style: AppStyles.monoHeadline.copyWith(
                 fontSize: 18,
                 letterSpacing: 2,
@@ -88,43 +89,43 @@ class _HomeViewState extends State<HomeView> {
           ],
         ),
         actions: [
-          if (searchCtrl.currentResource != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: InkWell(
-                onTap: () => _navigateToPreview(context),
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.accent, width: 1),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.smart_display_rounded,
-                        size: 14,
-                        color: AppColors.accentBright,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        'Preview',
-                        style: AppStyles.monoAccent.copyWith(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+          // if (searchCtrl.currentResource != null)
+          //   Padding(
+          //     padding: const EdgeInsets.only(right: 16),
+          //     child: InkWell(
+          //       onTap: () => _navigateToPreview(context),
+          //       borderRadius: BorderRadius.circular(20),
+          //       child: Container(
+          //         padding: const EdgeInsets.symmetric(
+          //           horizontal: 10,
+          //           vertical: 4,
+          //         ),
+          //         decoration: BoxDecoration(
+          //           color: AppColors.accent.withValues(alpha: 0.15),
+          //           borderRadius: BorderRadius.circular(20),
+          //           border: Border.all(color: AppColors.accent, width: 1),
+          //         ),
+          //         child: Row(
+          //           mainAxisSize: MainAxisSize.min,
+          //           children: [
+          //             const Icon(
+          //               Icons.smart_display_rounded,
+          //               size: 14,
+          //               color: AppColors.accentBright,
+          //             ),
+          //             const SizedBox(width: 5),
+          //             Text(
+          //               'Preview',
+          //               style: AppStyles.monoAccent.copyWith(
+          //                 fontSize: 11,
+          //                 fontWeight: FontWeight.w700,
+          //               ),
+          //             ),
+          //           ],
+          //         ),
+          //       ),
+          //     ),
+          //   ),
         ],
       ),
       body: Center(
@@ -161,7 +162,7 @@ class _HomeViewState extends State<HomeView> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Built with ❤️ by ToM \nPowered by yt-dlp, FFmpeg muxer & aria2c',
+                  '-----Built with ❤️ by @ToM-----',
                   style: AppStyles.caption.copyWith(
                     color: AppColors.textSecondary,
                   ),
@@ -185,15 +186,17 @@ class _HomeViewState extends State<HomeView> {
 
                 // Error Banner
                 if (searchCtrl.errorMessage != null)
-                  _buildErrorBanner(searchCtrl.errorMessage!),
+                  _buildErrorBanner(
+                    "${searchCtrl.errorMessage!.substring(0, 50)}...",
+                  ),
 
                 // Quick Presets & Links
                 // const SizedBox(height: 16),
                 // _buildQuickPresets(searchCtrl),
-                const SizedBox(height: 28),
+                // const SizedBox(height: 28),
 
                 // Engine Capability Badges
-                _buildArchitectureBadges(),
+                // _buildArchitectureBadges(),
               ],
             ),
           ),
@@ -214,11 +217,16 @@ class _HomeViewState extends State<HomeView> {
       ),
       child: TextField(
         controller: searchCtrl.urlInputController,
-        style: AppStyles.bodyLarge.copyWith(fontSize: 14),
+        style: AppStyles.monoSmall.copyWith(fontSize: 14),
         onSubmitted: (_) => _handleSearch(context, searchCtrl),
         decoration: InputDecoration(
           hintText: 'Paste video, audio, or playlist URL...',
-          hintStyle: AppStyles.bodyMedium.copyWith(color: AppColors.textMuted),
+          hintStyle: AppStyles.monoLabel.copyWith(
+            color: AppColors.textMuted,
+            letterSpacing: .5,
+            wordSpacing: .01,
+            fontSize: 13,
+          ),
           prefixIcon: const Icon(
             Icons.search_rounded,
             color: AppColors.accentBright,
@@ -272,11 +280,11 @@ class _HomeViewState extends State<HomeView> {
                   height: 48,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.surfaceElevated,
-                      foregroundColor: Colors.white,
+                      // backgroundColor: AppColors.surfaceElevated,
+                      // foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
-                        side: const BorderSide(color: AppColors.accent),
+                        // side: const BorderSide(color: AppColors.accent),
                       ),
                     ),
                     onPressed: null,
@@ -304,52 +312,53 @@ class _HomeViewState extends State<HomeView> {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
-              SizedBox(
-                height: 48,
-                child: OutlinedButton.icon(
-                  onPressed: () => searchCtrl.cancelSearch(),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.error,
-                    side: const BorderSide(color: AppColors.error),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  icon: const Icon(Icons.close_rounded, size: 18),
-                  label: Text(
-                    'CANCEL',
-                    style: AppStyles.monoLabel.copyWith(
-                      color: AppColors.error,
-                      fontSize: 11.5,
-                    ),
-                  ),
-                ),
-              ),
+              // const SizedBox(width: 10),
+              // SizedBox(
+              //   height: 48,
+              //   child: OutlinedButton.icon(
+              //     onPressed: () => searchCtrl.cancelSearch(),
+              //     style: OutlinedButton.styleFrom(
+              //       foregroundColor: AppColors.error,
+              //       // side: const BorderSide(color: AppColors.error),
+              //       shape: RoundedRectangleBorder(
+              //         borderRadius: BorderRadius.circular(10),
+              //       ),
+              //       backgroundColor: AppColors.surfaceElevated,
+              //     ),
+              //     icon: const Icon(Icons.close_rounded, size: 18),
+              //     label: Text(
+              //       'CANCEL',
+              //       style: AppStyles.monoLabel.copyWith(
+              //         color: AppColors.error,
+              //         fontSize: 11.5,
+              //       ),
+              //     ),
+              //   ),
+              // ),
             ],
           ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.bolt_rounded,
-                size: 14,
-                color: AppColors.accentBright,
-              ),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  'Search continues if you switch tabs or minimize the app',
-                  style: AppStyles.caption.copyWith(
-                    color: AppColors.textSecondary,
-                    fontSize: 11.5,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ],
-          ),
+          // const SizedBox(height: 8),
+          // Row(
+          //   mainAxisAlignment: MainAxisAlignment.center,
+          //   children: [
+          //     const Icon(
+          //       Icons.bolt_rounded,
+          //       size: 14,
+          //       color: AppColors.accentBright,
+          //     ),
+          //     const SizedBox(width: 4),
+          //     Flexible(
+          //       child: Text(
+          //         'Search continues if you switch tabs or minimize the app',
+          //         style: AppStyles.caption.copyWith(
+          //           color: AppColors.textSecondary,
+          //           fontSize: 11.5,
+          //         ),
+          //         textAlign: TextAlign.center,
+          //       ),
+          //     ),
+          //   ],
+          // ),
         ],
       );
     }
@@ -373,7 +382,7 @@ class _HomeViewState extends State<HomeView> {
             const Icon(Icons.stream_rounded, size: 18),
             const SizedBox(width: 8),
             Text(
-              'SEARCH & PREVIEW',
+              'SEARCH',
               style: AppStyles.monoHeadline.copyWith(
                 color: Colors.white,
                 fontSize: 13,
@@ -469,15 +478,17 @@ class _HomeViewState extends State<HomeView> {
       width: double.infinity,
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.accentBright, width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.accent.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(4),
+        border: Border(
+          left: BorderSide(color: AppColors.borderLight, width: 4),
+        ),
+        // boxShadow: [
+        //   BoxShadow(
+        //     color: AppColors.accent.withValues(alpha: 0.1),
+        //     blurRadius: 10,
+        //     offset: const Offset(0, 4),
+        //   ),
+        // ],
       ),
       child: Material(
         color: Colors.transparent,
@@ -542,10 +553,10 @@ class _HomeViewState extends State<HomeView> {
                                         ? 'SEARCH RESULTS'
                                         : 'PLAYLIST')
                                   : (res.isLive
-                                        ? '● LIVE NOW'
+                                        ? '● LIVE'
                                         : (res.isUpcoming
                                               ? 'UPCOMING'
-                                              : 'READY TO DOWNLOAD')),
+                                              : 'READY')),
                               style: AppStyles.monoSmall.copyWith(
                                 color: res.isUpcoming
                                     ? Colors.black
@@ -602,10 +613,10 @@ class _HomeViewState extends State<HomeView> {
                 // Action Indicator
                 Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentMuted.withValues(alpha: 0.25),
-                    shape: BoxShape.circle,
-                  ),
+                  // decoration: BoxDecoration(
+                  //   color: AppColors.accentMuted.withValues(alpha: 0.25),
+                  //   shape: BoxShape.circle,
+                  // ),
                   child: const Icon(
                     Icons.arrow_forward_ios_rounded,
                     size: 14,

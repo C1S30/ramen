@@ -113,9 +113,7 @@ class _PreviewViewState extends State<PreviewView> {
             size: 18,
             color: AppColors.textPrimary,
           ),
-          tooltip: searchCtrl.canReturnToPlaylist
-              ? 'Back to Playlist'
-              : 'Back',
+          tooltip: searchCtrl.canReturnToPlaylist ? 'Back to Playlist' : 'Back',
           onPressed: () {
             if (searchCtrl.canReturnToPlaylist) {
               searchCtrl.returnToPlaylist();
@@ -240,8 +238,7 @@ class _PreviewViewState extends State<PreviewView> {
             )
             .toList()
           ..sort(
-            (a, b) =>
-                ((b.abr ?? b.tbr) ?? 0).compareTo((a.abr ?? a.tbr) ?? 0),
+            (a, b) => ((b.abr ?? b.tbr) ?? 0).compareTo((a.abr ?? a.tbr) ?? 0),
           );
 
     // For live streams (HLS m3u8), streams are often multiplexed without separate audio-only tracks.
@@ -272,12 +269,9 @@ class _PreviewViewState extends State<PreviewView> {
             // 2. Title & Metadata
             Text(
               resource.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppStyles.titleMedium.copyWith(
-                fontSize: 15,
-                height: 1.2,
-              ),
+              // maxLines: 1,
+              overflow: TextOverflow.clip,
+              style: AppStyles.titleMedium.copyWith(fontSize: 15, height: 1.2),
             ),
             const SizedBox(height: 4),
             Row(
@@ -326,11 +320,11 @@ class _PreviewViewState extends State<PreviewView> {
                   'AVAILABLE FORMATS ($totalFormatsCount)',
                   style: AppStyles.caption.copyWith(letterSpacing: 0.8),
                 ),
-                if (searchCtrl.selectedFormat != null)
-                  Text(
-                    'ID: ${searchCtrl.selectedFormat!.formatId}',
-                    style: AppStyles.monoAccent.copyWith(fontSize: 11),
-                  ),
+                // if (searchCtrl.selectedFormat != null)
+                //   Text(
+                //     'ID: ${searchCtrl.selectedFormat!.formatId}',
+                //     style: AppStyles.monoAccent.copyWith(fontSize: 11),
+                //   ),
               ],
             ),
             const SizedBox(height: 8),
@@ -351,7 +345,7 @@ class _PreviewViewState extends State<PreviewView> {
                         title: 'VIDEO FORMAT',
                         subtitle: resource.isLive
                             ? 'Choose live HLS/DASH video stream resolution'
-                            : 'Choose video stream resolution and container',
+                            : 'Choose video quality & resolution',
                         icon: Icons.videocam_rounded,
                         accentColor: AppColors.accentBright,
                         formats: videoFormats,
@@ -371,7 +365,7 @@ class _PreviewViewState extends State<PreviewView> {
                       title: 'AUDIO FORMAT',
                       subtitle: isAudio
                           ? 'Choose audio quality for extraction'
-                          : 'Choose audio stream for muxing with video',
+                          : 'Choose audio stream quality',
                       icon: Icons.audiotrack_rounded,
                       accentColor: Colors.amberAccent,
                       formats: effectiveAudioFormats,
@@ -1053,8 +1047,8 @@ class _PreviewViewState extends State<PreviewView> {
               const SizedBox(width: 8),
               Text(
                 resource.isLive
-                    ? 'LIVE BROADCAST CONTROLS'
-                    : 'SCHEDULED STREAM CONTROLS',
+                    ? 'LIVE STREAM SETTINGS'
+                    : 'SCHEDULED STREAM SETTINGS',
                 style: AppStyles.monoHeadline.copyWith(
                   fontSize: 11.5,
                   color: statusColor,
@@ -1105,7 +1099,7 @@ class _PreviewViewState extends State<PreviewView> {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            'From Start (DVR)',
+                            'From Beginning (DVR)',
                             style: AppStyles.monoSmall.copyWith(
                               fontSize: 10.5,
                               color: options.liveFromStart
@@ -1212,7 +1206,7 @@ class _PreviewViewState extends State<PreviewView> {
     );
   }
 
-  Widget _buildThumbnail(MediaResource resource, {double height = 160}) {
+  Widget _buildThumbnail(MediaResource resource, {double height = 200}) {
     final badgeColor = switch (resource.liveStatus) {
       LiveStatus.isLive => AppColors.accent,
       LiveStatus.isUpcoming => AppColors.warning,
@@ -1227,10 +1221,7 @@ class _PreviewViewState extends State<PreviewView> {
       decoration: BoxDecoration(
         color: AppColors.surfaceElevated,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: resource.isLive ? AppColors.accentBright : AppColors.border,
-          width: resource.isLive ? 1.5 : 1.0,
-        ),
+        border: Border.all(color: AppColors.border, width: 1.0),
       ),
       child: Stack(
         fit: StackFit.expand,
@@ -1260,30 +1251,30 @@ class _PreviewViewState extends State<PreviewView> {
             ),
 
           // Duration or Live Status Meta Badge (Bottom-Right)
-          if (resource.isLive)
-            Positioned(
-              right: 10,
-              bottom: 10,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.82),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: AppColors.accentBright),
-                ),
-                child: Text(
-                  resource.concurrentViewCount != null
-                      ? '${Formatters.formatCompactNumber(resource.concurrentViewCount)} LIVE'
-                      : 'LIVE STREAM',
-                  style: AppStyles.monoSmall.copyWith(
-                    color: AppColors.accentBright,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 10.5,
-                  ),
-                ),
-              ),
-            )
-          else if (resource.isUpcoming && resource.releaseTimestamp != null)
+          // if (resource.isLive)
+          //   Positioned(
+          //     right: 10,
+          //     bottom: 10,
+          //     child: Container(
+          //       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          //       decoration: BoxDecoration(
+          //         color: Colors.black.withValues(alpha: 0.82),
+          //         borderRadius: BorderRadius.circular(4),
+          //         border: Border.all(color: AppColors.accentBright),
+          //       ),
+          //       child: Text(
+          //         resource.concurrentViewCount != null
+          //             ? '${Formatters.formatCompactNumber(resource.concurrentViewCount)} LIVE'
+          //             : 'LIVE STREAM',
+          //         style: AppStyles.monoSmall.copyWith(
+          //           color: AppColors.accentBright,
+          //           fontWeight: FontWeight.w700,
+          //           fontSize: 10.5,
+          //         ),
+          //       ),
+          //     ),
+          //   )
+          if (resource.isUpcoming && resource.releaseTimestamp != null)
             Positioned(
               right: 10,
               bottom: 10,
@@ -1399,7 +1390,7 @@ class _PreviewViewState extends State<PreviewView> {
               },
               child: Container(
                 decoration: BoxDecoration(
-                  color: !isAudio ? AppColors.accent : Colors.transparent,
+                  color: !isAudio ? AppColors.borderLight : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 alignment: Alignment.center,
@@ -1435,7 +1426,7 @@ class _PreviewViewState extends State<PreviewView> {
               },
               child: Container(
                 decoration: BoxDecoration(
-                  color: isAudio ? AppColors.accent : Colors.transparent,
+                  color: isAudio ? AppColors.borderLight : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 alignment: Alignment.center,
@@ -1547,14 +1538,14 @@ class _PreviewViewState extends State<PreviewView> {
                   ],
                 ),
               ),
-              if (activeSelection != null)
-                Text(
-                  'ID: ${activeSelection.formatId}',
-                  style: AppStyles.monoSmall.copyWith(
-                    color: AppColors.textMuted,
-                    fontSize: 10.5,
-                  ),
-                ),
+              // if (activeSelection != null)
+              //   Text(
+              //     'ID: ${activeSelection.formatId}',
+              //     style: AppStyles.monoSmall.copyWith(
+              //       color: AppColors.textMuted,
+              //       fontSize: 10.5,
+              //     ),
+              //   ),
             ],
           ),
           const SizedBox(height: 12),
@@ -1725,14 +1716,14 @@ class _PreviewViewState extends State<PreviewView> {
       buttonLabel = 'DOWNLOAD $selectedCount SELECTED ITEMS';
       buttonIcon = Icons.playlist_add_check_rounded;
     } else if (resource.isLive) {
-      buttonLabel = 'START LIVE RECORDING';
-      buttonIcon = Icons.fiber_manual_record_rounded;
+      buttonLabel = 'START RECORDING';
+      buttonIcon = Icons.sensors_rounded;
     } else if (resource.isUpcoming) {
       buttonLabel = 'WAIT & DOWNLOAD STREAM';
       buttonIcon = Icons.schedule_send_rounded;
     } else {
-      buttonLabel = 'START DOWNLOAD';
-      buttonIcon = Icons.download_rounded;
+      buttonLabel = 'DOWNLOAD';
+      buttonIcon = Icons.downloading_rounded;
     }
 
     return SizedBox(
@@ -1748,14 +1739,12 @@ class _PreviewViewState extends State<PreviewView> {
             borderRadius: BorderRadius.circular(12),
           ),
           elevation: isDisabled ? 0 : 4,
-          shadowColor: AppColors.accentGlow,
+          // shadowColor: AppColors.accentGlow,
         ),
         onPressed: isDisabled
             ? null
             : () async {
-                final tab = downloadCtrl.createTab(
-                  title: resource.title,
-                );
+                final tab = downloadCtrl.createTab(title: resource.title);
 
                 final tasks = await searchCtrl.startDownloadTasks(
                   targetTabId: tab.id,
@@ -1779,13 +1768,13 @@ class _PreviewViewState extends State<PreviewView> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(buttonIcon, size: 20),
+            Icon(buttonIcon, size: 23),
             const SizedBox(width: 10),
             Text(
               buttonLabel,
               style: AppStyles.monoHeadline.copyWith(
                 color: isDisabled ? AppColors.textMuted : Colors.white,
-                fontSize: 13.5,
+                fontSize: 15,
                 letterSpacing: 1,
               ),
             ),

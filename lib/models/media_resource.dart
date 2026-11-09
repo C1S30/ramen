@@ -7,8 +7,8 @@ import 'dart:convert';
 /// - `post_live`: Broadcast has ended, VOD is still being processed
 /// - `not_live`: Standard pre-recorded video
 enum LiveStatus {
-  notLive('not_live', 'STREAM READY'),
-  isLive('is_live', 'LIVE NOW'),
+  notLive('not_live', 'READY'),
+  isLive('is_live', 'LIVE'),
   isUpcoming('is_upcoming', 'UPCOMING'),
   wasLive('was_live', 'WAS LIVE'),
   postLive('post_live', 'POST-LIVE');
@@ -149,7 +149,8 @@ class FormatItem {
       vcodec: vcodec,
       acodec: acodec,
       filesize: filesize,
-      tbr: tbr ?? ((vbr ?? 0) + (abr ?? 0) > 0 ? (vbr ?? 0) + (abr ?? 0) : null),
+      tbr:
+          tbr ?? ((vbr ?? 0) + (abr ?? 0) > 0 ? (vbr ?? 0) + (abr ?? 0) : null),
       vbr: vbr,
       abr: abr,
       formatNote: json['format_note']?.toString(),
@@ -317,8 +318,7 @@ class MediaResource {
         final parsedEntry = MediaResource.fromJson(
           m,
           entryUrl,
-          fallbackPlaylistIndex:
-              (m['playlist_index'] as num?)?.toInt() ?? idx,
+          fallbackPlaylistIndex: (m['playlist_index'] as num?)?.toInt() ?? idx,
         );
         entries.add(parsedEntry);
       }
@@ -488,7 +488,8 @@ class MediaResource {
             return MediaResource.fromJson({
               '_type': 'playlist',
               'id': first['playlist_id'] ?? 'playlist',
-              'title': first['playlist_title'] ?? first['playlist'] ?? 'Playlist',
+              'title':
+                  first['playlist_title'] ?? first['playlist'] ?? 'Playlist',
               'uploader': first['playlist_uploader'] ?? first['uploader'],
               'playlist_count': entries.length,
               'entries': entries,
@@ -711,7 +712,9 @@ class MediaResource {
     }
 
     final isLikelyLive =
-        hasM3u8Formats && formats.isNotEmpty && formats.every((f) => f.filesize == null);
+        hasM3u8Formats &&
+        formats.isNotEmpty &&
+        formats.every((f) => f.filesize == null);
 
     return MediaResource(
       id: detectedId,
