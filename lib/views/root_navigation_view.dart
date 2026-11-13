@@ -159,10 +159,7 @@ class _RootNavigationViewState extends State<RootNavigationView>
                   size: 20,
                 );
               }
-              return const IconThemeData(
-                color: AppColors.textMuted,
-                size: 20,
-              );
+              return const IconThemeData(color: AppColors.textMuted, size: 20);
             }),
           ),
           child: NavigationBar(
@@ -175,35 +172,8 @@ class _RootNavigationViewState extends State<RootNavigationView>
                 label: 'SEARCH',
               ),
               NavigationDestination(
-                icon: Badge(
-                  isLabelVisible: activeCount > 0,
-                  label: Text(
-                    '$activeCount',
-                    style: AppStyles.monoSmall.copyWith(
-                      color: AppColors.onAccent,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  backgroundColor: AppColors.accent,
-                  textColor: AppColors.onAccent,
-                  child: const Icon(Icons.south_rounded),
-                ),
-                selectedIcon: Badge(
-                  isLabelVisible: activeCount > 0,
-                  label: Text(
-                    '$activeCount',
-                    style: AppStyles.monoSmall.copyWith(
-                      color: AppColors.onAccent,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  backgroundColor: AppColors.accent,
-                  textColor: AppColors.onAccent,
-                  child: const Icon(Icons.south_rounded),
-                ),
-                label: 'QUEUE',
+                icon: const Icon(Icons.downloading_rounded),
+                label: 'DOWNLOADS',
               ),
               const NavigationDestination(
                 icon: Icon(Icons.tune_rounded),
@@ -239,9 +209,7 @@ class _RootNavigationViewState extends State<RootNavigationView>
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
       decoration: const BoxDecoration(
         color: AppColors.surface,
-        border: Border(
-          top: BorderSide(color: AppColors.borderLight, width: 1),
-        ),
+        border: Border(top: BorderSide(color: AppColors.borderLight, width: 1)),
       ),
       child: Row(
         children: [
@@ -282,7 +250,7 @@ class _RootNavigationViewState extends State<RootNavigationView>
                 Text(
                   isDownloading
                       ? 'DOWNLOADING${activeDownloads.length > 1 ? ' (${activeDownloads.length})' : ''}  •  ${downloadProgress.toStringAsFixed(1)}%${primaryTask!.speed.isNotEmpty ? '  •  ${primaryTask.speed}' : ''}'
-                      : (isSearching ? 'INSPECTING STREAM' : 'READY'),
+                      : (isSearching ? 'SEARCHING...' : 'READY'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppStyles.monoSmall.copyWith(
@@ -332,7 +300,10 @@ class _RootNavigationViewState extends State<RootNavigationView>
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.textSecondary,
                 side: const BorderSide(color: AppColors.borderLight),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 shape: RoundedRectangleBorder(

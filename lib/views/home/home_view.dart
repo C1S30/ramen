@@ -66,7 +66,7 @@ class _HomeViewState extends State<HomeView> {
         elevation: 0,
         centerTitle: true,
         title: Text(
-          'RAMEN',
+          '-RAMEN-',
           style: AppStyles.monoHeadline.copyWith(
             fontSize: 14,
             letterSpacing: 4.0,
@@ -104,24 +104,24 @@ class _HomeViewState extends State<HomeView> {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'MEDIA EXTRACTOR',
+                  '-RAMEN-',
                   style: AppStyles.monoHeadline.copyWith(
-                    fontSize: 12,
+                    fontSize: 20,
                     letterSpacing: 3.0,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  'Minimalist video, audio & live stream downloader',
-                  style: AppStyles.caption.copyWith(
-                    color: AppColors.textSecondary,
-                    letterSpacing: 0.2,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 32),
+                // Text(
+                //   'Minimalist video, audio & live stream downloader',
+                //   style: AppStyles.caption.copyWith(
+                //     color: AppColors.textSecondary,
+                //     letterSpacing: 0.2,
+                //   ),
+                //   textAlign: TextAlign.center,
+                // ),
+                const SizedBox(height: 30),
 
                 // Active Media Preview Resume Banner
                 if (searchCtrl.currentResource != null) ...[
@@ -245,7 +245,7 @@ class _HomeViewState extends State<HomeView> {
               ),
               const SizedBox(width: 12),
               Text(
-                'INSPECTING STREAM',
+                'SEARCHING...',
                 style: AppStyles.monoLabel.copyWith(
                   color: AppColors.textPrimary,
                   fontSize: 11.5,
@@ -265,9 +265,7 @@ class _HomeViewState extends State<HomeView> {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.accent,
           foregroundColor: AppColors.onAccent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           elevation: 0,
         ),
         onPressed: () => _handleSearch(context, searchCtrl),
@@ -281,7 +279,7 @@ class _HomeViewState extends State<HomeView> {
             ),
             const SizedBox(width: 8),
             Text(
-              'INSPECT MEDIA',
+              'SEARCH ',
               style: AppStyles.monoHeadline.copyWith(
                 color: AppColors.onAccent,
                 fontSize: 12.5,
@@ -395,9 +393,7 @@ class _HomeViewState extends State<HomeView> {
                             ),
                             child: Text(
                               res.isPlaylist
-                                  ? (res.isSearchResult
-                                        ? 'SEARCH'
-                                        : 'PLAYLIST')
+                                  ? (res.isSearchResult ? 'SEARCH' : 'PLAYLIST')
                                   : (res.isLive
                                         ? '● LIVE'
                                         : (res.isUpcoming

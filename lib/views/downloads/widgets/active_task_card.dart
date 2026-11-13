@@ -105,8 +105,8 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                   children: [
                     Text(
                       task.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      // maxLines: 1,
+                      overflow: TextOverflow.clip,
                       style: AppStyles.bodyLarge.copyWith(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -339,7 +339,7 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        _showLogs ? 'Hide' : 'Logs',
+                        _showLogs ? 'Hide logs' : 'Show logs',
                         style: AppStyles.monoSmall.copyWith(
                           fontSize: 10,
                           color: _showLogs

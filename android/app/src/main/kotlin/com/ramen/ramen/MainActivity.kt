@@ -1161,15 +1161,7 @@ class MainActivity : FlutterActivity() {
                                 // 1. Primary Seal method: Fetch complete metadata using --dump-single-json
                                 try {
                                     val jsonRequest = YoutubeDLRequest(url)
-                                    jsonRequest.addOption("--config-locations", configFile.absolutePath)
                                     jsonRequest.addOption("--dump-single-json")
-                                    jsonRequest.addOption("--no-warnings")
-                                    jsonRequest.addOption("--flat-playlist")
-                                    jsonRequest.addOption("-o", "%(title).200B")
-                                    jsonRequest.addOption("-R", "1")
-                                    jsonRequest.addOption("--socket-timeout", "10")
-                                    applySilentCookiesAndUserAgent(jsonRequest, url, extraArgs, isRetryFallback = false)
-                                    applyOptions(jsonRequest, extraArgs)
 
                                     val jsonResponse: YoutubeDLResponse = YoutubeDL.getInstance().execute(jsonRequest, searchId, null)
                                     jsonOut = jsonResponse.out

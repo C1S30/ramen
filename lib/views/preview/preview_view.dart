@@ -320,11 +320,11 @@ class _PreviewViewState extends State<PreviewView> {
                   'AVAILABLE FORMATS ($totalFormatsCount)',
                   style: AppStyles.caption.copyWith(letterSpacing: 0.8),
                 ),
-                // if (searchCtrl.selectedFormat != null)
-                //   Text(
-                //     'ID: ${searchCtrl.selectedFormat!.formatId}',
-                //     style: AppStyles.monoAccent.copyWith(fontSize: 11),
-                //   ),
+                if (searchCtrl.selectedFormat != null)
+                  Text(
+                    'ID: ${searchCtrl.selectedFormat!.formatId}',
+                    style: AppStyles.monoAccent.copyWith(fontSize: 11),
+                  ),
               ],
             ),
             const SizedBox(height: 8),
@@ -1206,7 +1206,7 @@ class _PreviewViewState extends State<PreviewView> {
     );
   }
 
-  Widget _buildThumbnail(MediaResource resource, {double height = 200}) {
+  Widget _buildThumbnail(MediaResource resource, {double height = 280}) {
     final badgeColor = switch (resource.liveStatus) {
       LiveStatus.isLive => AppColors.accent,
       LiveStatus.isUpcoming => AppColors.warning,
@@ -1217,7 +1217,7 @@ class _PreviewViewState extends State<PreviewView> {
 
     return Container(
       width: double.infinity,
-      height: height,
+      height: 250,
       decoration: BoxDecoration(
         color: AppColors.surfaceElevated,
         borderRadius: BorderRadius.circular(14),
@@ -1380,6 +1380,7 @@ class _PreviewViewState extends State<PreviewView> {
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
+        spacing: 10,
         children: [
           Expanded(
             child: GestureDetector(
@@ -1745,9 +1746,7 @@ class _PreviewViewState extends State<PreviewView> {
           foregroundColor: isDisabled
               ? AppColors.textMuted
               : AppColors.onAccent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           elevation: 0,
         ),
         onPressed: isDisabled

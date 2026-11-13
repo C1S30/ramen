@@ -239,7 +239,8 @@ class NativeBridgeService {
         if (file.existsSync()) file.deleteSync();
         return '';
       }
-      final normalized = content.trim().startsWith('# Netscape HTTP Cookie File')
+      final normalized =
+          content.trim().startsWith('# Netscape HTTP Cookie File')
           ? content.trim()
           : '# Netscape HTTP Cookie File\n${content.trim()}\n';
       await file.writeAsString(normalized);
@@ -253,7 +254,8 @@ class NativeBridgeService {
   Future<String> getUserCookies() async {
     if (Platform.isAndroid) {
       try {
-        return await _engineChannel.invokeMethod<String>('getUserCookies') ?? '';
+        return await _engineChannel.invokeMethod<String>('getUserCookies') ??
+            '';
       } catch (_) {
         return '';
       }
@@ -378,6 +380,7 @@ class NativeBridgeService {
       }
 
       if (rawOut != null && rawOut.trim().isNotEmpty) {
+        print(rawOut);
         return MediaResource.parseOutput(rawOut, target);
       } else {
         throw Exception('No media information returned by yt-dlp');
@@ -385,11 +388,7 @@ class NativeBridgeService {
     }
 
     // Desktop execution: invoke local yt-dlp using 'URL -F' template only
-    return await _getFormatsViaDesktopCli(
-      target,
-      extraArgs,
-      effectiveSearchId,
-    );
+    return await _getFormatsViaDesktopCli(target, extraArgs, effectiveSearchId);
   }
 
   Future<MediaResource> _getFormatsViaDesktopCli(

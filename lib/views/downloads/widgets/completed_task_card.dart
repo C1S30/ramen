@@ -52,14 +52,22 @@ class CompletedTaskCard extends StatelessWidget {
                           width: 50,
                           height: 34,
                           color: AppColors.surfaceElevated,
-                          child: const Icon(Icons.movie_outlined, size: 16, color: AppColors.textMuted),
+                          child: const Icon(
+                            Icons.movie_outlined,
+                            size: 16,
+                            color: AppColors.textMuted,
+                          ),
                         ),
                       )
                     : Container(
                         width: 50,
                         height: 34,
                         color: AppColors.surfaceElevated,
-                        child: const Icon(Icons.movie_outlined, size: 16, color: AppColors.textMuted),
+                        child: const Icon(
+                          Icons.movie_outlined,
+                          size: 16,
+                          color: AppColors.textMuted,
+                        ),
                       ),
               ),
               const SizedBox(width: 10),
@@ -69,40 +77,55 @@ class CompletedTaskCard extends StatelessWidget {
                   children: [
                     Text(
                       task.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      // maxLines: 1,
+                      overflow: TextOverflow.clip,
                       style: AppStyles.bodyLarge.copyWith(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Row(
                       children: [
-                        Text(
-                          isFailed ? 'FAILED' : task.extension.toUpperCase(),
-                          style: AppStyles.monoSmall.copyWith(
-                            fontSize: 10,
-                            color: isFailed ? AppColors.error : AppColors.accentBright,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        if (task.totalBytes != null && task.totalBytes! > 0) ...[
-                          const SizedBox(width: 6),
-                          Text('•', style: AppStyles.monoSmall.copyWith(fontSize: 10)),
-                          const SizedBox(width: 6),
+                        // Text(
+                        //   isFailed ? 'FAILED' : task.extension.toUpperCase(),
+                        //   style: AppStyles.monoSmall.copyWith(
+                        //     fontSize: 10,
+                        //     color: isFailed
+                        //         ? AppColors.error
+                        //         : AppColors.accentBright,
+                        //     fontWeight: FontWeight.w700,
+                        //   ),
+                        // ),
+                        if (task.totalBytes != null &&
+                            task.totalBytes! > 0) ...[
+                          // const SizedBox(width: 6),
+                          // Text(
+                          //   '•',
+                          //   style: AppStyles.monoSmall.copyWith(fontSize: 10),
+                          // ),
+                          // const SizedBox(width: 6),
                           Text(
                             Formatters.formatBytes(task.totalBytes),
-                            style: AppStyles.monoSmall.copyWith(fontSize: 11),
+                            style: AppStyles.monoSmall.copyWith(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ],
                         if (task.completedAt != null) ...[
                           const SizedBox(width: 6),
-                          Text('•', style: AppStyles.monoSmall.copyWith(fontSize: 10)),
+                          Text(
+                            '•',
+                            style: AppStyles.monoSmall.copyWith(fontSize: 12),
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             '${task.completedAt!.hour.toString().padLeft(2, '0')}:${task.completedAt!.minute.toString().padLeft(2, '0')}',
-                            style: AppStyles.caption.copyWith(fontSize: 10),
+                            style: AppStyles.caption.copyWith(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ],
                       ],
@@ -119,7 +142,11 @@ class CompletedTaskCard extends StatelessWidget {
                       visualDensity: VisualDensity.compact,
                       padding: const EdgeInsets.all(4),
                       constraints: const BoxConstraints(),
-                      icon: const Icon(Icons.play_arrow_rounded, size: 20, color: AppColors.textPrimary),
+                      icon: const Icon(
+                        Icons.play_arrow_rounded,
+                        size: 20,
+                        color: AppColors.textPrimary,
+                      ),
                       tooltip: 'Play',
                       onPressed: onOpen,
                     ),
@@ -128,7 +155,11 @@ class CompletedTaskCard extends StatelessWidget {
                       visualDensity: VisualDensity.compact,
                       padding: const EdgeInsets.all(4),
                       constraints: const BoxConstraints(),
-                      icon: const Icon(Icons.share_outlined, size: 16, color: AppColors.textSecondary),
+                      icon: const Icon(
+                        Icons.share_outlined,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
                       tooltip: 'Share',
                       onPressed: onShare,
                     ),
@@ -138,7 +169,11 @@ class CompletedTaskCard extends StatelessWidget {
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.all(4),
                     constraints: const BoxConstraints(),
-                    icon: const Icon(Icons.close_rounded, size: 16, color: AppColors.textMuted),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      size: 16,
+                      color: AppColors.textMuted,
+                    ),
                     tooltip: 'Delete',
                     onPressed: onDelete,
                   ),

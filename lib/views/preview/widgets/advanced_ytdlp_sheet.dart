@@ -114,7 +114,7 @@ class _AdvancedYtDlpSheetState extends State<AdvancedYtDlpSheet> {
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          'ADVANCED YT-DLP ENGINE',
+                          'ADVANCED CONFIGURATION',
                           style: AppStyles.monoHeadline.copyWith(fontSize: 14),
                         ),
                       ],
@@ -147,8 +147,7 @@ class _AdvancedYtDlpSheetState extends State<AdvancedYtDlpSheet> {
                 ),
                 _buildSwitchTile(
                   title: 'Embedded aria2c Downloader',
-                  subtitle:
-                      '16-connection multi-socket acceleration (Seal setup)',
+                  subtitle: '16-connection multi-socket acceleration',
                   value: _options.useAria2c,
                   onChanged: (val) =>
                       _update(_options.copyWith(useAria2c: val)),
@@ -470,7 +469,7 @@ class _AdvancedYtDlpSheetState extends State<AdvancedYtDlpSheet> {
               ),
               const SizedBox(width: 6),
               Text(
-                'ACTIVE YT-DLP COMMAND',
+                'ACTIVE DOWNLOAD TEMPLATE',
                 style: AppStyles.monoSmall.copyWith(
                   color: AppColors.accentBright,
                 ),
@@ -542,10 +541,7 @@ class _AdvancedYtDlpSheetState extends State<AdvancedYtDlpSheet> {
               ],
             ),
           ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-          ),
+          Switch(value: value, onChanged: onChanged),
         ],
       ),
     );
