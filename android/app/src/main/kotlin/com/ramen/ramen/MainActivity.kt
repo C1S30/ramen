@@ -1158,10 +1158,16 @@ class MainActivity : FlutterActivity() {
                                 val configFile = getOrCreateConfigFile()
                                 var jsonOut: String? = null
 
-                                // 1. Primary Seal method: Fetch complete metadata using --dump-single-json
+                                // 1. Fetch metadata using --dump-single-json with playlist & live support
                                 try {
                                     val jsonRequest = YoutubeDLRequest(url)
+                                    jsonRequest.addOption("--config-locations", configFile.absolutePath)
                                     jsonRequest.addOption("--dump-single-json")
+                                    jsonRequest.addOption("--no-warnings")
+                                    jsonRequest.addOption("--flat-playlist")
+                                    jsonRequest.addOption("--ignore-errors")
+                                    applySilentCookiesAndUserAgent(jsonRequest, url, extraArgs, isRetryFallback = false)
+                                    applyOptions(jsonRequest, extraArgs)
 
                                     val jsonResponse: YoutubeDLResponse = YoutubeDL.getInstance().execute(jsonRequest, searchId, null)
                                     jsonOut = jsonResponse.out
@@ -1401,6 +1407,7 @@ class MainActivity : FlutterActivity() {
                                 applyOptions(request, filteredArgs)
 
                                 val speedRegex = Regex("""at\s+([0-9.]+\s*[kKmMgG]?[iI]?[bB]/s)""")
+                                val liveElapsedRegex = Regex("""\(([0-9:]+)\)""")
 
                                 var downloadException: Exception? = null
                                 try {
@@ -1411,11 +1418,20 @@ class MainActivity : FlutterActivity() {
                                         val rawLine = line ?: ""
                                         val speedMatch = speedRegex.find(rawLine)
                                         val speed = speedMatch?.groupValues?.getOrNull(1) ?: ""
+                                        val safeProgress = if (progress < 0f) 0.0 else progress.toDouble()
+                                        val liveElapsed = liveElapsedRegex.find(rawLine)?.groupValues?.getOrNull(1)
+                                        val etaValue: Any = if (etaInSeconds < 0 && liveElapsed != null) {
+                                            "LIVE $liveElapsed"
+                                        } else if (etaInSeconds < 0) {
+                                            "LIVE"
+                                        } else {
+                                            etaInSeconds
+                                        }
 
                                         RamenBackgroundService.onDownloadProgress(
                                             applicationContext,
                                             taskId,
-                                            progress.toDouble(),
+                                            safeProgress,
                                             speed
                                         )
 
@@ -1423,9 +1439,9 @@ class MainActivity : FlutterActivity() {
                                             mapOf(
                                                 "taskId" to taskId,
                                                 "status" to "DOWNLOADING",
-                                                "progress" to progress.toDouble(),
+                                                "progress" to safeProgress,
                                                 "speed" to speed,
-                                                "eta" to etaInSeconds,
+                                                "eta" to etaValue,
                                                 "log" to rawLine
                                             )
                                         )
@@ -1709,11 +1725,18 @@ class MainActivity : FlutterActivity() {
     private fun extractCleanErrorMessage(e: Throwable): String {
         val message = e.message ?: e.localizedMessage ?: "Operation failed"
         val lines = message.lines()
-        val errorLine = lines.firstOrNull { it.trim().startsWith("ERROR:", ignoreCase = true) }
-        if (errorLine != null) {
-            return errorLine.trim().substringAfter(":").trim()
+        val errorLines = lines.filter { it.trim().startsWith("ERROR:", ignoreCase = true) }
+        if (errorLines.isNotEmpty()) {
+            return errorLines.last().trim().substringAfter(":").trim()
         }
-        return lines.firstOrNull { it.isNotBlank() }?.trim() ?: message
+        val meaningful = lines.firstOrNull { line ->
+            val t = line.trim()
+            t.isNotBlank() &&
+                !t.startsWith("WARNING:", ignoreCase = true) &&
+                !t.startsWith("Traceback", ignoreCase = true) &&
+                !t.startsWith("File \"", ignoreCase = true)
+        }?.trim()
+        return meaningful ?: message
     }
 
     override fun onDestroy() {

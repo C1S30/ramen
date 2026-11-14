@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/di/injection.dart';
+import '../../core/utils/formatters.dart';
 import '../../core/utils/url_validator.dart';
 import '../../models/command_template.dart';
 import '../../models/download_task.dart';
@@ -468,7 +469,7 @@ class SearchFormatController extends ChangeNotifier {
       final msg = e.toString().replaceFirst('Exception: ', '');
       if (!msg.toLowerCase().contains('cancelled') &&
           !msg.toLowerCase().contains('canceled')) {
-        _errorMessage = msg;
+        _errorMessage = Formatters.cleanErrorMessage(msg);
       }
       return null;
     } finally {

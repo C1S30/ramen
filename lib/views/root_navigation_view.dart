@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:provider/provider.dart';
 import '../core/constants/app_colors.dart';
 import '../core/constants/app_styles.dart';
@@ -131,55 +132,43 @@ class _RootNavigationViewState extends State<RootNavigationView>
           color: AppColors.background,
           border: Border(top: BorderSide(color: AppColors.border, width: 1)),
         ),
-        child: NavigationBarTheme(
-          data: NavigationBarThemeData(
-            backgroundColor: AppColors.background,
-            indicatorColor: AppColors.surfaceHighlight,
-            indicatorShape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-              side: const BorderSide(color: AppColors.borderLight, width: 1),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: GNav(
+              selectedIndex: _currentIndex,
+              onTabChange: _onTabSelected,
+              backgroundColor: AppColors.background,
+              color: AppColors.textMuted,
+              activeColor: AppColors.onAccent,
+              tabBackgroundColor: AppColors.accent,
+              tabBorderRadius: 12,
+              gap: 8,
+              iconSize: 20,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              duration: const Duration(milliseconds: 220),
+              textStyle: AppStyles.monoLabel.copyWith(
+                color: AppColors.onAccent,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+              ),
+              tabs: [
+                const GButton(
+                  icon: Icons.north_east_rounded,
+                  text: 'EXTRACT',
+                ),
+                GButton(
+                  icon: Icons.south_rounded,
+                  text: activeCount > 0 ? 'QUEUE ($activeCount)' : 'QUEUE',
+                ),
+                const GButton(
+                  icon: Icons.tune_rounded,
+                  text: 'SYSTEM',
+                ),
+              ],
             ),
-            labelTextStyle: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.selected)) {
-                return AppStyles.monoAccent.copyWith(
-                  fontSize: 10.5,
-                  letterSpacing: 0.6,
-                );
-              }
-              return AppStyles.monoSmall.copyWith(
-                fontSize: 10.5,
-                letterSpacing: 0.4,
-                color: AppColors.textMuted,
-              );
-            }),
-            iconTheme: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.selected)) {
-                return const IconThemeData(
-                  color: AppColors.textPrimary,
-                  size: 20,
-                );
-              }
-              return const IconThemeData(color: AppColors.textMuted, size: 20);
-            }),
-          ),
-          child: NavigationBar(
-            height: 62,
-            selectedIndex: _currentIndex,
-            onDestinationSelected: _onTabSelected,
-            destinations: [
-              const NavigationDestination(
-                icon: Icon(Icons.search_rounded),
-                label: 'SEARCH',
-              ),
-              NavigationDestination(
-                icon: const Icon(Icons.downloading_rounded),
-                label: 'DOWNLOADS',
-              ),
-              const NavigationDestination(
-                icon: Icon(Icons.tune_rounded),
-                label: 'SETTINGS',
-              ),
-            ],
           ),
         ),
       ),

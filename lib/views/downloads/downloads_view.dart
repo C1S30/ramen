@@ -24,75 +24,69 @@ class DownloadsView extends StatelessWidget {
     final completedTasks = currentTabTasks
         .where((t) => t.isCompleted || t.isFailed)
         .toList();
+    final failedCount = completedTasks.where((t) => t.isFailed).length;
+    final doneCount = completedTasks.where((t) => t.isCompleted).length;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        titleSpacing: 20,
-        centerTitle: true,
-        title: Text(
-          'QUEUE',
-          style: AppStyles.monoHeadline.copyWith(
-            fontSize: 14,
-            letterSpacing: 4.0,
-            fontWeight: FontWeight.w700,
-          ),
+        titleSpacing: 22,
+        centerTitle: false,
+        title: Row(
+          children: [
+            Text(
+              'TASK QUEUE',
+              style: AppStyles.monoHeadline.copyWith(
+                fontSize: 15,
+                letterSpacing: 2.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const Spacer(),
+            _buildStatPill('ACTIVE ${activeTasks.length}'),
+            const SizedBox(width: 6),
+            _buildStatPill('DONE $doneCount'),
+            if (failedCount > 0) ...[
+              const SizedBox(width: 6),
+              _buildStatPill('ERR $failedCount', isError: true),
+            ],
+          ],
         ),
         actions: [
           if (completedTasks.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.cleaning_services_rounded, size: 18),
+              icon: const Icon(Icons.delete_sweep_outlined, size: 20),
               tooltip: 'Clear completed tasks',
               color: AppColors.textSecondary,
-              onPressed: () => downloadCtrl.clearCompleted(),
+              onPressed: downloadCtrl.clearCompleted,
             ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: AppColors.border),
+        ),
       ),
       body: Column(
         children: [
-          // Multi-Tab Strip for Simultaneous Downloads
           _buildMultiTabBar(context, downloadCtrl, tabs, activeTabIndex),
           const Divider(height: 1),
-
-          // Tab Content
           Expanded(
             child: (activeTasks.isEmpty && completedTasks.isEmpty)
-                ? _buildEmptyState(context, downloadCtrl.currentTab.title)
+                ? _buildEmptyState(context)
                 : ListView(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20,
-                      vertical: 14,
+                      vertical: 16,
                     ),
                     children: [
-                      // Active Simultaneous Downloads
                       if (activeTasks.isNotEmpty) ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.accentBright,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'DOWNLOADING (${activeTasks.length})',
-                                  style: AppStyles.caption.copyWith(
-                                    letterSpacing: 0.8,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                        Text(
+                          'ACTIVE TRANSFERS // ${activeTasks.length}',
+                          style: AppStyles.caption.copyWith(letterSpacing: 1.2),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 10),
                         ...activeTasks.map(
                           (task) => Padding(
                             padding: const EdgeInsets.only(bottom: 12),
@@ -106,33 +100,20 @@ class DownloadsView extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                       ],
-
-                      // Completed Downloads Section
                       if (completedTasks.isNotEmpty) ...[
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.check_circle_outline_rounded,
-                              size: 14,
-                              color: AppColors.textSecondary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'FINISHED TASKS (${completedTasks.length})',
-                              style: AppStyles.caption.copyWith(
-                                letterSpacing: 0.8,
-                              ),
-                            ),
-                          ],
+                        Text(
+                          'ARCHIVE // ${completedTasks.length}',
+                          style: AppStyles.caption.copyWith(letterSpacing: 1.2),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 10),
                         ...completedTasks.map(
                           (task) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.only(bottom: 10),
                             child: CompletedTaskCard(
                               task: task,
                               onOpen: () => downloadCtrl.openFile(task),
                               onShare: () => downloadCtrl.shareFile(task),
+                              onRetry: () => downloadCtrl.resumeTask(task.id),
                               onDelete: () => downloadCtrl.deleteTask(task.id),
                             ),
                           ),
@@ -142,6 +123,31 @@ class DownloadsView extends StatelessWidget {
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildStatPill(String label, {bool isError = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isError
+            ? AppColors.error.withValues(alpha: 0.14)
+            : AppColors.surface,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isError
+              ? AppColors.error.withValues(alpha: 0.4)
+              : AppColors.borderLight,
+        ),
+      ),
+      child: Text(
+        label,
+        style: AppStyles.monoSmall.copyWith(
+          fontSize: 9.5,
+          color: isError ? AppColors.error : AppColors.textPrimary,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -160,7 +166,7 @@ class DownloadsView extends StatelessWidget {
           Expanded(
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
               itemCount: tabs.length,
               itemBuilder: (context, index) {
                 final tab = tabs[index];
@@ -172,8 +178,7 @@ class DownloadsView extends StatelessWidget {
                   child: InkWell(
                     onTap: () => downloadCtrl.selectTab(index),
                     borderRadius: BorderRadius.circular(8),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
+                    child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 6,
@@ -182,27 +187,24 @@ class DownloadsView extends StatelessWidget {
                         color: isSelected
                             ? AppColors.accent
                             : AppColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: isSelected
                               ? AppColors.accent
                               : AppColors.border,
-                          width: 1,
                         ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            tab.title as String,
+                            (tab.title as String).toUpperCase(),
                             style: AppStyles.monoSmall.copyWith(
                               color: isSelected
                                   ? AppColors.onAccent
                                   : AppColors.textSecondary,
-                              fontWeight: isSelected
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 10.5,
                             ),
                           ),
                           if (isClosable) ...[
@@ -212,7 +214,7 @@ class DownloadsView extends StatelessWidget {
                                   downloadCtrl.closeTab(tab.id as String),
                               child: Icon(
                                 Icons.close_rounded,
-                                size: 14,
+                                size: 13,
                                 color: isSelected
                                     ? AppColors.onAccent
                                     : AppColors.textMuted,
@@ -227,22 +229,20 @@ class DownloadsView extends StatelessWidget {
               },
             ),
           ),
-
-          // Add New Tab Button for simultaneous downloads
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: IconButton(
-              icon: const Icon(Icons.add_rounded, size: 20),
-              tooltip: 'Open new download tab',
-              color: AppColors.accentBright,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              tooltip: 'New session tab',
+              color: AppColors.textPrimary,
               style: IconButton.styleFrom(
                 backgroundColor: AppColors.surfaceElevated,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
-                  side: const BorderSide(color: AppColors.border),
+                  side: const BorderSide(color: AppColors.borderLight),
                 ),
               ),
-              onPressed: () => downloadCtrl.createTab(),
+              onPressed: downloadCtrl.createTab,
             ),
           ),
         ],
@@ -250,7 +250,7 @@ class DownloadsView extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, String tabTitle) {
+  Widget _buildEmptyState(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -261,49 +261,53 @@ class DownloadsView extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.borderLight),
               ),
               child: const Icon(
-                Icons.downloading_rounded,
-                size: 36,
-                color: AppColors.accentBright,
+                Icons.south_rounded,
+                size: 32,
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 18),
             Text(
-              'No Downloads found',
-              style: AppStyles.titleMedium.copyWith(fontSize: 16),
+              'QUEUE // EMPTY',
+              style: AppStyles.monoHeadline.copyWith(
+                fontSize: 14,
+                letterSpacing: 1.5,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
-              'Paste a URL in the home page search bar to start downloading.',
+              'Extract a video, audio track, playlist, or live stream from the home tab.',
               textAlign: TextAlign.center,
-              style: AppStyles.caption,
+              style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.surfaceElevated,
-                foregroundColor: AppColors.textPrimary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: const BorderSide(color: AppColors.border),
-                ),
+                backgroundColor: AppColors.accent,
+                foregroundColor: AppColors.onAccent,
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
+                  horizontal: 18,
+                  vertical: 12,
                 ),
               ),
               icon: const Icon(
-                Icons.add_rounded,
-                size: 18,
-                color: AppColors.accentBright,
+                Icons.north_east_rounded,
+                size: 16,
+                color: AppColors.onAccent,
               ),
-              label: Text('NEW DOWNLOAD', style: AppStyles.monoSmall),
-              onPressed: () {
-                onNewDownloadRequested?.call();
-              },
+              label: Text(
+                'EXTRACT MEDIA',
+                style: AppStyles.monoLabel.copyWith(
+                  color: AppColors.onAccent,
+                  fontSize: 11.5,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              onPressed: onNewDownloadRequested,
             ),
           ],
         ),

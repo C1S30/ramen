@@ -380,7 +380,6 @@ class NativeBridgeService {
       }
 
       if (rawOut != null && rawOut.trim().isNotEmpty) {
-        print(rawOut);
         return MediaResource.parseOutput(rawOut, target);
       } else {
         throw Exception('No media information returned by yt-dlp');
@@ -406,6 +405,7 @@ class NativeBridgeService {
         '--dump-single-json',
         '--no-warnings',
         '--flat-playlist',
+        '--ignore-errors',
         ...extraArgs,
         target,
       ];

@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../core/utils/formatters.dart';
 import '../models/app_settings.dart';
 import '../models/download_task.dart';
 import 'native_bridge_service.dart';
@@ -69,7 +70,7 @@ class TaskQueueService {
         _processQueue(); // Start next queued task
       } else if (statusStr == 'FAILED') {
         task.status = DownloadStatus.failed;
-        task.errorLog = data['error']?.toString();
+        task.errorLog = Formatters.cleanErrorMessage(data['error']?.toString());
         _storageService.saveTask(task);
         _processQueue();
       } else if (statusStr == 'CANCELLED') {

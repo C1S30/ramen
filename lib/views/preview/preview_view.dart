@@ -61,18 +61,19 @@ class _PreviewViewState extends State<PreviewView> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const SizedBox(
-                width: 26,
-                height: 26,
+                width: 24,
+                height: 24,
                 child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: AppColors.accentBright,
+                  strokeWidth: 2,
+                  color: AppColors.accent,
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               Text(
-                'Inspecting stream metadata...',
-                style: AppStyles.monoSmall.copyWith(
+                'RESOLVING STREAM METADATA...',
+                style: AppStyles.monoLabel.copyWith(
                   color: AppColors.textSecondary,
+                  letterSpacing: 1.2,
                 ),
               ),
             ],
@@ -82,6 +83,7 @@ class _PreviewViewState extends State<PreviewView> {
     }
 
     if (resource == null) {
+      final err = searchCtrl.errorMessage;
       return Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
@@ -93,10 +95,37 @@ class _PreviewViewState extends State<PreviewView> {
           ),
         ),
         body: Center(
-          child: Text(
-            searchCtrl.errorMessage ?? 'No media preview available',
-            style: AppStyles.bodyMedium,
-            textAlign: TextAlign.center,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.borderLight),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    Formatters.errorCodeLabel(err),
+                    style: AppStyles.monoLabel.copyWith(
+                      color: AppColors.error,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    Formatters.cleanErrorMessage(err),
+                    style: AppStyles.monoSmall.copyWith(
+                      color: AppColors.textPrimary,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       );
@@ -110,7 +139,7 @@ class _PreviewViewState extends State<PreviewView> {
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
-            size: 18,
+            size: 17,
             color: AppColors.textPrimary,
           ),
           tooltip: searchCtrl.canReturnToPlaylist ? 'Back to Playlist' : 'Back',
@@ -123,37 +152,34 @@ class _PreviewViewState extends State<PreviewView> {
           },
         ),
         title: Text(
-          resource.url.length > 28
-              ? '${resource.url.substring(0, 28)}...'
-              : resource.url,
+          resource.isPlaylist
+              ? (resource.isSearchResult ? 'SEARCH // RESULTS' : 'PLAYLIST // STUDIO')
+              : (resource.isLive ? 'LIVE // BROADCAST' : 'STREAM // STUDIO'),
           style: AppStyles.monoHeadline.copyWith(
             fontSize: 13,
-            letterSpacing: 0.8,
+            letterSpacing: 2.0,
           ),
         ),
         centerTitle: true,
         actions: [
           if (searchCtrl.canReturnToPlaylist)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: TextButton.icon(
-                onPressed: searchCtrl.returnToPlaylist,
-                icon: const Icon(
-                  Icons.playlist_play_rounded,
-                  size: 16,
-                  color: AppColors.accentBright,
-                ),
-                label: Text(
-                  'Playlist',
-                  style: AppStyles.monoAccent.copyWith(fontSize: 11),
-                ),
+            TextButton.icon(
+              onPressed: searchCtrl.returnToPlaylist,
+              icon: const Icon(
+                Icons.playlist_play_rounded,
+                size: 16,
+                color: AppColors.textPrimary,
+              ),
+              label: Text(
+                'PLAYLIST',
+                style: AppStyles.monoAccent.copyWith(fontSize: 10.5),
               ),
             ),
           IconButton(
             icon: const Icon(
               Icons.tune_rounded,
               size: 18,
-              color: AppColors.textSecondary,
+              color: AppColors.textPrimary,
             ),
             tooltip: 'Advanced yt-dlp Options',
             onPressed: () => _openAdvancedSheet(context, searchCtrl, resource),
@@ -161,7 +187,7 @@ class _PreviewViewState extends State<PreviewView> {
           IconButton(
             icon: const Icon(
               Icons.copy_rounded,
-              size: 18,
+              size: 17,
               color: AppColors.textSecondary,
             ),
             tooltip: 'Copy URL',
@@ -169,33 +195,26 @@ class _PreviewViewState extends State<PreviewView> {
               Clipboard.setData(ClipboardData(text: resource.url));
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Media URL copied to clipboard'),
-                  duration: Duration(seconds: 2),
+                  content: Text('URL COPIED TO CLIPBOARD'),
+                  duration: Duration(seconds: 1),
                 ),
               );
             },
           ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: AppColors.border),
+        ),
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          if (resource.isPlaylist) {
-            return _buildPlaylistView(context, searchCtrl, resource);
-          }
-          return _buildSingleMediaView(
-            context,
-            constraints,
-            searchCtrl,
-            resource,
-          );
-        },
-      ),
+      body: resource.isPlaylist
+          ? _buildPlaylistView(context, searchCtrl, resource)
+          : _buildSingleMediaView(context, searchCtrl, resource),
     );
   }
 
   Widget _buildSingleMediaView(
     BuildContext context,
-    BoxConstraints constraints,
     SearchFormatController searchCtrl,
     MediaResource resource,
   ) {
@@ -241,164 +260,399 @@ class _PreviewViewState extends State<PreviewView> {
             (a, b) => ((b.abr ?? b.tbr) ?? 0).compareTo((a.abr ?? a.tbr) ?? 0),
           );
 
-    // For live streams (HLS m3u8), streams are often multiplexed without separate audio-only tracks.
-    // In Audio-Only mode, allow selecting from multiplexed streams if no dedicated audio stream exists.
     final effectiveAudioFormats =
         (isAudio && audioFormats.isEmpty && videoFormats.isNotEmpty)
         ? videoFormats
         : audioFormats;
 
-    final totalFormatsCount = isAudio
-        ? effectiveAudioFormats.length
-        : videoFormats.length + audioFormats.length;
-
-    final thumbHeight = constraints.maxHeight > 750
-        ? 160.0
-        : (constraints.maxHeight > 620 ? 125.0 : 90.0);
-
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 1. Thumbnail Card with Live / Duration Badges
-            _buildThumbnail(resource, height: thumbHeight),
-            const SizedBox(height: 10),
+      child: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildBigHeroPreviewCard(searchCtrl, resource),
+                  const SizedBox(height: 16),
 
-            // 2. Title & Metadata
-            Text(
-              resource.title,
-              // maxLines: 1,
-              overflow: TextOverflow.clip,
-              style: AppStyles.titleMedium.copyWith(fontSize: 15, height: 1.2),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(
-                  Icons.account_circle_outlined,
-                  size: 15,
-                  color: AppColors.textSecondary,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    resource.uploader ?? 'Unknown Channel',
-                    style: AppStyles.bodyMedium.copyWith(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
+                  _buildStreamTypeToggle(searchCtrl, isAudio),
+                  const SizedBox(height: 16),
+
+                  if (resource.isLiveOrUpcoming) ...[
+                    _buildLiveStreamControlsCard(searchCtrl, resource),
+                    const SizedBox(height: 16),
+                  ],
+
+                  if (!isAudio && videoFormats.isNotEmpty) ...[
+                    _buildQuickResolutionStrip(
+                      videoFormats,
+                      searchCtrl.selectedVideoFormat,
+                      searchCtrl.selectVideoFormat,
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (resource.concurrentViewCount != null &&
-                    resource.isLive) ...[
-                  Text(
-                    '${Formatters.formatCompactNumber(resource.concurrentViewCount)} watching',
-                    style: AppStyles.monoAccent.copyWith(fontSize: 11),
-                  ),
-                ] else if (resource.viewCount != null) ...[
-                  Text(
-                    '${Formatters.formatCompactNumber(resource.viewCount)} views',
-                    style: AppStyles.monoSmall.copyWith(fontSize: 11),
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 12),
+                    const SizedBox(height: 14),
+                  ],
 
-            // 3. Audio vs Video Stream Mode Switcher
-            _buildStreamTypeToggle(searchCtrl, isAudio),
-            const SizedBox(height: 12),
-
-            // 4. Available Formats Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'AVAILABLE FORMATS ($totalFormatsCount)',
-                  style: AppStyles.caption.copyWith(letterSpacing: 0.8),
-                ),
-                if (searchCtrl.selectedFormat != null)
-                  Text(
-                    'ID: ${searchCtrl.selectedFormat!.formatId}',
-                    style: AppStyles.monoAccent.copyWith(fontSize: 11),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-
-            // 5. Video & Audio Format Dropdowns + Live Stream Controls
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (resource.isLiveOrUpcoming) ...[
-                      _buildLiveStreamControlsCard(searchCtrl, resource),
-                      const SizedBox(height: 12),
-                    ],
-                    if (!isAudio) ...[
-                      _buildFormatDropdownSection(
-                        title: 'VIDEO FORMAT',
-                        subtitle: resource.isLive
-                            ? 'Choose live HLS/DASH video stream resolution'
-                            : 'Choose video quality & resolution',
-                        icon: Icons.videocam_rounded,
-                        accentColor: AppColors.accentBright,
-                        formats: videoFormats,
-                        selectedFormat: searchCtrl.selectedVideoFormat,
-                        emptyLabel: resource.isUpcoming
-                            ? 'Auto-negotiated when broadcast goes live (bestvideo)'
-                            : 'No video formats available',
-                        onChanged: (format) {
-                          if (format != null) {
-                            searchCtrl.selectVideoFormat(format);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                    ],
+                  if (!isAudio) ...[
                     _buildFormatDropdownSection(
-                      title: 'AUDIO FORMAT',
-                      subtitle: isAudio
-                          ? 'Choose audio quality for extraction'
-                          : 'Choose audio stream quality',
-                      icon: Icons.audiotrack_rounded,
-                      accentColor: AppColors.textPrimary,
-                      formats: effectiveAudioFormats,
-                      selectedFormat: isAudio && audioFormats.isEmpty
-                          ? searchCtrl.selectedVideoFormat
-                          : searchCtrl.selectedAudioFormat,
+                      title: 'VIDEO STREAM',
+                      subtitle: resource.isLive
+                          ? 'HLS / DASH live broadcast resolution'
+                          : 'Select resolution, frame rate & video codec',
+                      icon: Icons.videocam_outlined,
+                      formats: videoFormats,
+                      selectedFormat: searchCtrl.selectedVideoFormat,
                       emptyLabel: resource.isUpcoming
-                          ? 'Auto-negotiated when broadcast goes live (bestaudio)'
-                          : (videoFormats.any((f) => f.isMerged || f.isHls)
-                                ? 'Included in multiplexed HLS/video stream'
-                                : 'No audio formats available'),
+                          ? 'Auto-negotiated when broadcast goes live (bestvideo)'
+                          : 'No video streams available',
                       onChanged: (format) {
                         if (format != null) {
-                          if (isAudio && audioFormats.isEmpty) {
-                            searchCtrl.selectVideoFormat(format);
-                          } else {
-                            searchCtrl.selectAudioFormat(format);
-                          }
+                          searchCtrl.selectVideoFormat(format);
                         }
                       },
                     ),
+                    const SizedBox(height: 12),
                   ],
-                ),
+
+                  _buildFormatDropdownSection(
+                    title: 'AUDIO STREAM',
+                    subtitle: isAudio
+                        ? 'Select source audio track for extraction'
+                        : 'Select companion audio bitrate & codec',
+                    icon: Icons.graphic_eq_rounded,
+                    formats: effectiveAudioFormats,
+                    selectedFormat: isAudio && audioFormats.isEmpty
+                        ? searchCtrl.selectedVideoFormat
+                        : searchCtrl.selectedAudioFormat,
+                    emptyLabel: resource.isUpcoming
+                        ? 'Auto-negotiated when broadcast goes live (bestaudio)'
+                        : (videoFormats.any((f) => f.isMerged || f.isHls)
+                              ? 'Audio multiplexed inside video stream'
+                              : 'No dedicated audio streams available'),
+                    onChanged: (format) {
+                      if (format != null) {
+                        if (isAudio && audioFormats.isEmpty) {
+                          searchCtrl.selectVideoFormat(format);
+                        } else {
+                          searchCtrl.selectAudioFormat(format);
+                        }
+                      }
+                    },
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
+          ),
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+            decoration: const BoxDecoration(
+              color: AppColors.background,
+              border: Border(top: BorderSide(color: AppColors.border)),
+            ),
+            child: _buildDownloadButton(context, searchCtrl, resource),
+          ),
+        ],
+      ),
+    );
+  }
 
-            // Primary Download CTA Button
-            _buildDownloadButton(context, searchCtrl, resource),
-            const SizedBox(height: 4),
-          ],
+  Widget _buildBigHeroPreviewCard(
+    SearchFormatController searchCtrl,
+    MediaResource resource,
+  ) {
+    final chosen = searchCtrl.selectedFormat;
+    final rightBadge = resource.isLive
+        ? (resource.concurrentViewCount != null
+              ? '${Formatters.formatCompactNumber(resource.concurrentViewCount)} WATCHING'
+              : 'LIVE EDGE')
+        : (resource.isUpcoming && resource.releaseTimestamp != null
+              ? Formatters.formatReleaseTimestamp(resource.releaseTimestamp)
+              : (resource.durationSeconds != null
+                    ? Formatters.formatDuration(resource.durationSeconds)
+                    : 'STREAM'));
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.borderLight, width: 1),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 228,
+            width: double.infinity,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (resource.thumbnail != null)
+                  Image.network(
+                    resource.thumbnail!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: AppColors.surfaceElevated,
+                      child: const Center(
+                        child: Icon(
+                          Icons.movie_outlined,
+                          size: 44,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    color: AppColors.surfaceElevated,
+                    child: const Center(
+                      child: Icon(
+                        Icons.movie_outlined,
+                        size: 44,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.45),
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.92),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 14,
+                  top: 14,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (resource.isLive) ...[
+                          const Icon(
+                            Icons.fiber_manual_record_rounded,
+                            size: 10,
+                            color: AppColors.onAccent,
+                          ),
+                          const SizedBox(width: 5),
+                        ],
+                        Text(
+                          resource.liveStatus.badgeLabel,
+                          style: AppStyles.monoSmall.copyWith(
+                            color: AppColors.onAccent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 14,
+                  top: 14,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.82),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.borderLight),
+                    ),
+                    child: Text(
+                      rightBadge,
+                      style: AppStyles.monoSmall.copyWith(
+                        color: AppColors.textPrimary,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 14,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              (resource.uploader ?? 'UNKNOWN CHANNEL')
+                                  .toUpperCase(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppStyles.monoSmall.copyWith(
+                                color: AppColors.textSecondary,
+                                fontSize: 10.5,
+                                letterSpacing: 1.0,
+                              ),
+                            ),
+                          ),
+                          if (resource.viewCount != null && !resource.isLive)
+                            Text(
+                              '${Formatters.formatCompactNumber(resource.viewCount)} VIEWS',
+                              style: AppStyles.monoSmall.copyWith(
+                                color: AppColors.textSecondary,
+                                fontSize: 10,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        resource.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppStyles.monoTitle.copyWith(
+                          fontSize: 15.5,
+                          height: 1.25,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+            decoration: const BoxDecoration(
+              color: AppColors.surfaceElevated,
+              border: Border(top: BorderSide(color: AppColors.border)),
+            ),
+            child: Row(
+              children: [
+                _buildMonoSpecChip(
+                  chosen?.displayQuality.toUpperCase() ?? 'AUTO QUALITY',
+                ),
+                const SizedBox(width: 8),
+                _buildMonoSpecChip(
+                  (searchCtrl.isAudioOnly
+                          ? searchCtrl.options.audioFormat
+                          : (chosen?.ext ?? 'mp4'))
+                      .toUpperCase(),
+                ),
+                if (chosen?.filesize != null) ...[
+                  const SizedBox(width: 8),
+                  _buildMonoSpecChip(Formatters.formatBytes(chosen!.filesize)),
+                ],
+                const Spacer(),
+                Text(
+                  '${resource.formats.length} STREAMS',
+                  style: AppStyles.monoSmall.copyWith(
+                    fontSize: 10,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMonoSpecChip(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: AppColors.borderLight),
+      ),
+      child: Text(
+        text,
+        style: AppStyles.monoSmall.copyWith(
+          fontSize: 10,
+          color: AppColors.textPrimary,
+          fontWeight: FontWeight.w700,
         ),
       ),
+    );
+  }
+
+  Widget _buildQuickResolutionStrip(
+    List<FormatItem> videoFormats,
+    FormatItem? selectedVideo,
+    ValueChanged<FormatItem> onSelect,
+  ) {
+    final uniqueByQuality = <String, FormatItem>{};
+    for (final f in videoFormats) {
+      final key = f.displayQuality;
+      uniqueByQuality.putIfAbsent(key, () => f);
+    }
+    final items = uniqueByQuality.values.take(6).toList();
+    if (items.length <= 1) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'QUICK RESOLUTION',
+          style: AppStyles.caption.copyWith(letterSpacing: 1.2),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 36,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final fmt = items[index];
+              final isSelected = selectedVideo?.formatId == fmt.formatId;
+              return GestureDetector(
+                onTap: () => onSelect(fmt),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.accent : AppColors.surface,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSelected
+                          ? AppColors.accent
+                          : AppColors.borderLight,
+                    ),
+                  ),
+                  child: Text(
+                    fmt.displayQuality,
+                    style: AppStyles.monoSmall.copyWith(
+                      color: isSelected
+                          ? AppColors.onAccent
+                          : AppColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -415,135 +669,52 @@ class _PreviewViewState extends State<PreviewView> {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Playlist Summary Header Card
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 76,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceElevated,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(7),
-                      child: resource.thumbnail != null
-                          ? Image.network(
-                              resource.thumbnail!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(
-                                Icons.playlist_play_rounded,
-                                size: 28,
-                                color: AppColors.textMuted,
-                              ),
-                            )
-                          : const Icon(
-                              Icons.playlist_play_rounded,
-                              size: 28,
-                              color: AppColors.textMuted,
-                            ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.accent,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                resource.isSearchResult
-                                    ? 'SEARCH RESULTS'
-                                    : 'PLAYLIST',
-                                style: AppStyles.monoSmall.copyWith(
-                                  color: AppColors.onAccent,
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${resource.playlistCount ?? entries.length} tracks',
-                              style: AppStyles.monoSmall.copyWith(fontSize: 11),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          resource.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppStyles.titleMedium.copyWith(fontSize: 14),
-                        ),
-                        if (resource.uploader != null) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            resource.uploader!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppStyles.caption.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
+            _buildBigPlaylistHeroCard(searchCtrl, resource),
+            const SizedBox(height: 12),
 
-            // 2. Stream Mode Toggle
             _buildStreamTypeToggle(searchCtrl, isAudio),
             const SizedBox(height: 10),
 
-            // 3. Playlist Video / Audio Format Preset Dropdowns
             _buildPlaylistFormatDropdowns(searchCtrl, resource, isAudio),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
 
-            // 4. Playlist Entries Header & Select All Toggle
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'PLAYLIST ENTRIES ($selectedCount/${entries.length} SELECTED)',
-                  style: AppStyles.caption.copyWith(letterSpacing: 0.8),
+                  'TRACKS // $selectedCount OF ${entries.length} SELECTED',
+                  style: AppStyles.caption.copyWith(letterSpacing: 1.0),
                 ),
                 GestureDetector(
                   onTap: () => searchCtrl.selectAllPlaylistItems(!allSelected),
-                  child: Text(
-                    allSelected ? 'Deselect All' : 'Select All',
-                    style: AppStyles.monoAccent.copyWith(fontSize: 11),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceElevated,
+                      borderRadius: BorderRadius.circular(5),
+                      border: Border.all(color: AppColors.borderLight),
+                    ),
+                    child: Text(
+                      allSelected ? 'DESELECT ALL' : 'SELECT ALL',
+                      style: AppStyles.monoSmall.copyWith(
+                        fontSize: 10,
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
 
-            // 5. Scrollable Playlist Entries List
             Expanded(
               child: entries.isEmpty
                   ? Container(
@@ -556,8 +727,8 @@ class _PreviewViewState extends State<PreviewView> {
                       ),
                       child: Center(
                         child: Text(
-                          'No playable entries found in this playlist',
-                          style: AppStyles.bodyMedium,
+                          'NO PLAYABLE ITEMS FOUND IN PLAYLIST',
+                          style: AppStyles.monoSmall,
                         ),
                       ),
                     )
@@ -580,11 +751,127 @@ class _PreviewViewState extends State<PreviewView> {
             ),
             const SizedBox(height: 8),
 
-            // 6. Primary Batch Download Button
             _buildDownloadButton(context, searchCtrl, resource),
-            const SizedBox(height: 4),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBigPlaylistHeroCard(
+    SearchFormatController searchCtrl,
+    MediaResource resource,
+  ) {
+    final entries = resource.playlistEntries;
+    return Container(
+      height: 164,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderLight),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (resource.thumbnail != null)
+            Image.network(
+              resource.thumbnail!,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: AppColors.surfaceElevated,
+              ),
+            )
+          else
+            Container(color: AppColors.surfaceElevated),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.5),
+                  Colors.black.withValues(alpha: 0.92),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent,
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: Text(
+                        resource.isSearchResult ? 'SEARCH RESULTS' : 'PLAYLIST',
+                        style: AppStyles.monoSmall.copyWith(
+                          color: AppColors.onAccent,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.78),
+                        borderRadius: BorderRadius.circular(5),
+                        border: Border.all(color: AppColors.borderLight),
+                      ),
+                      child: Text(
+                        '${resource.playlistCount ?? entries.length} TRACKS',
+                        style: AppStyles.monoSmall.copyWith(
+                          color: AppColors.textPrimary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                if (resource.uploader != null)
+                  Text(
+                    resource.uploader!.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppStyles.monoSmall.copyWith(
+                      color: AppColors.textSecondary,
+                      fontSize: 10,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                const SizedBox(height: 4),
+                Text(
+                  resource.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppStyles.monoTitle.copyWith(
+                    fontSize: 15,
+                    color: AppColors.textPrimary,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -633,7 +920,7 @@ class _PreviewViewState extends State<PreviewView> {
                                 items: const [
                                   DropdownMenuItem(
                                     value: 'mp3',
-                                    child: Text('MP3 Audio'),
+                                    child: Text('MP3 AUDIO'),
                                   ),
                                   DropdownMenuItem(
                                     value: 'm4a',
@@ -641,11 +928,11 @@ class _PreviewViewState extends State<PreviewView> {
                                   ),
                                   DropdownMenuItem(
                                     value: 'opus',
-                                    child: Text('Opus Audio'),
+                                    child: Text('OPUS AUDIO'),
                                   ),
                                   DropdownMenuItem(
                                     value: 'flac',
-                                    child: Text('FLAC Lossless'),
+                                    child: Text('FLAC LOSSLESS'),
                                   ),
                                   DropdownMenuItem(
                                     value: 'wav',
@@ -654,7 +941,7 @@ class _PreviewViewState extends State<PreviewView> {
                                 ],
                                 style: AppStyles.monoSmall.copyWith(
                                   color: AppColors.textPrimary,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
                                 ),
                                 onChanged: (val) {
                                   if (val != null) {
@@ -671,36 +958,36 @@ class _PreviewViewState extends State<PreviewView> {
                                 items: const [
                                   DropdownMenuItem(
                                     value: 'best',
-                                    child: Text('Best Available'),
+                                    child: Text('MAX QUALITY'),
                                   ),
                                   DropdownMenuItem(
                                     value: '2160',
-                                    child: Text('2160p (4K UHD)'),
+                                    child: Text('2160P (4K)'),
                                   ),
                                   DropdownMenuItem(
                                     value: '1440',
-                                    child: Text('1440p (2K QHD)'),
+                                    child: Text('1440P (2K)'),
                                   ),
                                   DropdownMenuItem(
                                     value: '1080',
-                                    child: Text('1080p (Full HD)'),
+                                    child: Text('1080P (FHD)'),
                                   ),
                                   DropdownMenuItem(
                                     value: '720',
-                                    child: Text('720p (HD)'),
+                                    child: Text('720P (HD)'),
                                   ),
                                   DropdownMenuItem(
                                     value: '480',
-                                    child: Text('480p (SD)'),
+                                    child: Text('480P (SD)'),
                                   ),
                                   DropdownMenuItem(
                                     value: '360',
-                                    child: Text('360p (Data Saver)'),
+                                    child: Text('360P (LOW)'),
                                   ),
                                 ],
                                 style: AppStyles.monoSmall.copyWith(
                                   color: AppColors.textPrimary,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
                                 ),
                                 onChanged: (val) {
                                   if (val != null) {
@@ -719,7 +1006,7 @@ class _PreviewViewState extends State<PreviewView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isAudio ? 'AUDIO BITRATE' : 'CONTAINER',
+                      isAudio ? 'BITRATE' : 'CONTAINER',
                       style: AppStyles.caption.copyWith(fontSize: 10),
                     ),
                     const SizedBox(height: 4),
@@ -741,28 +1028,28 @@ class _PreviewViewState extends State<PreviewView> {
                                 items: const [
                                   DropdownMenuItem(
                                     value: '0',
-                                    child: Text('Best (VBR 0)'),
+                                    child: Text('VBR 0 (BEST)'),
                                   ),
                                   DropdownMenuItem(
                                     value: '320k',
-                                    child: Text('320 kbps'),
+                                    child: Text('320 KBPS'),
                                   ),
                                   DropdownMenuItem(
                                     value: '256k',
-                                    child: Text('256 kbps'),
+                                    child: Text('256 KBPS'),
                                   ),
                                   DropdownMenuItem(
                                     value: '192k',
-                                    child: Text('192 kbps'),
+                                    child: Text('192 KBPS'),
                                   ),
                                   DropdownMenuItem(
                                     value: '128k',
-                                    child: Text('128 kbps'),
+                                    child: Text('128 KBPS'),
                                   ),
                                 ],
                                 style: AppStyles.monoSmall.copyWith(
                                   color: AppColors.textPrimary,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
                                 ),
                                 onChanged: (val) {
                                   if (val != null) {
@@ -779,20 +1066,20 @@ class _PreviewViewState extends State<PreviewView> {
                                 items: const [
                                   DropdownMenuItem(
                                     value: 'mp4',
-                                    child: Text('MP4 Container'),
+                                    child: Text('MP4 MUX'),
                                   ),
                                   DropdownMenuItem(
                                     value: 'mkv',
-                                    child: Text('MKV Container'),
+                                    child: Text('MKV MUX'),
                                   ),
                                   DropdownMenuItem(
                                     value: 'webm',
-                                    child: Text('WebM Container'),
+                                    child: Text('WEBM MUX'),
                                   ),
                                 ],
                                 style: AppStyles.monoSmall.copyWith(
                                   color: AppColors.textPrimary,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
                                 ),
                                 onChanged: (val) {
                                   if (val != null) {
@@ -832,10 +1119,10 @@ class _PreviewViewState extends State<PreviewView> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Batch via single yt-dlp process (--yes-playlist --playlist-items)',
-                        style: AppStyles.caption.copyWith(
+                        'SINGLE YT-DLP BATCH PROCESS (--yes-playlist --playlist-items)',
+                        style: AppStyles.monoSmall.copyWith(
                           color: AppColors.textSecondary,
-                          fontSize: 10.5,
+                          fontSize: 10,
                         ),
                       ),
                     ),
@@ -856,7 +1143,10 @@ class _PreviewViewState extends State<PreviewView> {
     SearchFormatController searchCtrl,
   ) {
     final isPlayable = entry.isPlayableEntry;
-    final idx = entry.playlistIndex ?? displayIndex;
+    final idx = (entry.playlistIndex ?? displayIndex).toString().padLeft(
+      2,
+      '0',
+    );
 
     return InkWell(
       onTap: isPlayable ? () => searchCtrl.togglePlaylistItem(entry.id) : null,
@@ -864,20 +1154,18 @@ class _PreviewViewState extends State<PreviewView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.accentMuted.withValues(alpha: 0.14)
-              : AppColors.surface,
+          color: isSelected ? AppColors.surfaceElevated : AppColors.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected ? AppColors.accentBright : AppColors.border,
-            width: isSelected ? 1.2 : 1.0,
+            color: isSelected ? AppColors.accent : AppColors.border,
+            width: 1.0,
           ),
         ),
         child: Row(
           children: [
             SizedBox(
-              width: 22,
-              height: 22,
+              width: 20,
+              height: 20,
               child: Checkbox(
                 value: isSelected,
                 activeColor: AppColors.accent,
@@ -889,12 +1177,15 @@ class _PreviewViewState extends State<PreviewView> {
             ),
             const SizedBox(width: 8),
             SizedBox(
-              width: 24,
+              width: 26,
               child: Text(
-                '#$idx',
+                idx,
                 style: AppStyles.monoSmall.copyWith(
-                  fontSize: 10,
-                  color: AppColors.textMuted,
+                  fontSize: 10.5,
+                  color: isSelected
+                      ? AppColors.textPrimary
+                      : AppColors.textMuted,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -905,27 +1196,27 @@ class _PreviewViewState extends State<PreviewView> {
                   entry.thumbnail != null
                       ? Image.network(
                           entry.thumbnail!,
-                          width: 60,
-                          height: 38,
+                          width: 58,
+                          height: 36,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => Container(
-                            width: 60,
-                            height: 38,
-                            color: AppColors.surfaceElevated,
+                            width: 58,
+                            height: 36,
+                            color: AppColors.surfaceHighlight,
                             child: const Icon(
                               Icons.movie_outlined,
-                              size: 16,
+                              size: 15,
                               color: AppColors.textMuted,
                             ),
                           ),
                         )
                       : Container(
-                          width: 60,
-                          height: 38,
-                          color: AppColors.surfaceElevated,
+                          width: 58,
+                          height: 36,
+                          color: AppColors.surfaceHighlight,
                           child: const Icon(
                             Icons.movie_outlined,
-                            size: 16,
+                            size: 15,
                             color: AppColors.textMuted,
                           ),
                         ),
@@ -964,12 +1255,11 @@ class _PreviewViewState extends State<PreviewView> {
                     entry.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppStyles.bodyMedium.copyWith(
+                    style: AppStyles.monoLabel.copyWith(
                       color: isPlayable
                           ? AppColors.textPrimary
                           : AppColors.textMuted,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12.5,
+                      fontSize: 12,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -997,7 +1287,10 @@ class _PreviewViewState extends State<PreviewView> {
                             entry.uploader!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: AppStyles.caption.copyWith(fontSize: 10.5),
+                            style: AppStyles.monoSmall.copyWith(
+                              fontSize: 10,
+                              color: AppColors.textMuted,
+                            ),
                           ),
                         ),
                     ],
@@ -1008,11 +1301,11 @@ class _PreviewViewState extends State<PreviewView> {
             if (isPlayable)
               IconButton(
                 icon: const Icon(
-                  Icons.tune_rounded,
-                  size: 17,
-                  color: AppColors.accentBright,
+                  Icons.north_east_rounded,
+                  size: 16,
+                  color: AppColors.textPrimary,
                 ),
-                tooltip: 'Inspect individual video formats',
+                tooltip: 'Inspect individual track formats',
                 visualDensity: VisualDensity.compact,
                 onPressed: () => searchCtrl.inspectPlaylistEntry(entry),
               ),
@@ -1027,32 +1320,32 @@ class _PreviewViewState extends State<PreviewView> {
     MediaResource resource,
   ) {
     final options = searchCtrl.options;
-    final statusColor = resource.isLive
-        ? AppColors.accentBright
-        : AppColors.warning;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: statusColor.withValues(alpha: 0.5)),
+        border: Border.all(color: AppColors.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.sensors_rounded, size: 16, color: statusColor),
+              const Icon(
+                Icons.sensors_rounded,
+                size: 16,
+                color: AppColors.textPrimary,
+              ),
               const SizedBox(width: 8),
               Text(
                 resource.isLive
-                    ? 'LIVE STREAM SETTINGS'
-                    : 'SCHEDULED STREAM SETTINGS',
+                    ? 'LIVE BROADCAST ENGINE'
+                    : 'SCHEDULED BROADCAST ENGINE',
                 style: AppStyles.monoHeadline.copyWith(
                   fontSize: 11.5,
-                  color: statusColor,
-                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
                 ),
               ),
               const Spacer(),
@@ -1063,7 +1356,7 @@ class _PreviewViewState extends State<PreviewView> {
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -1073,41 +1366,40 @@ class _PreviewViewState extends State<PreviewView> {
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 6,
+                      horizontal: 10,
+                      vertical: 8,
                     ),
                     decoration: BoxDecoration(
                       color: options.liveFromStart
-                          ? AppColors.accentMuted
+                          ? AppColors.accent
                           : AppColors.surfaceElevated,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: options.liveFromStart
-                            ? AppColors.accentBright
+                            ? AppColors.accent
                             : AppColors.border,
                       ),
                     ),
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           Icons.replay_rounded,
                           size: 14,
                           color: options.liveFromStart
-                              ? AppColors.accentBright
+                              ? AppColors.onAccent
                               : AppColors.textSecondary,
                         ),
                         const SizedBox(width: 6),
-                        Expanded(
+                        Flexible(
                           child: Text(
-                            'From Beginning (DVR)',
+                            'DVR // FROM START',
                             style: AppStyles.monoSmall.copyWith(
-                              fontSize: 10.5,
+                              fontSize: 10,
                               color: options.liveFromStart
-                                  ? AppColors.textPrimary
+                                  ? AppColors.onAccent
                                   : AppColors.textSecondary,
-                              fontWeight: options.liveFromStart
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
+                              fontWeight: FontWeight.w700,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1125,41 +1417,40 @@ class _PreviewViewState extends State<PreviewView> {
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 6,
+                      horizontal: 10,
+                      vertical: 8,
                     ),
                     decoration: BoxDecoration(
                       color: options.hlsUseMpegts
-                          ? AppColors.accentMuted
+                          ? AppColors.accent
                           : AppColors.surfaceElevated,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: options.hlsUseMpegts
-                            ? AppColors.accentBright
+                            ? AppColors.accent
                             : AppColors.border,
                       ),
                     ),
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           Icons.shield_outlined,
                           size: 14,
                           color: options.hlsUseMpegts
-                              ? AppColors.accentBright
+                              ? AppColors.onAccent
                               : AppColors.textSecondary,
                         ),
                         const SizedBox(width: 6),
-                        Expanded(
+                        Flexible(
                           child: Text(
-                            'Safe MPEG-TS',
+                            'SAFE // MPEG-TS',
                             style: AppStyles.monoSmall.copyWith(
-                              fontSize: 10.5,
+                              fontSize: 10,
                               color: options.hlsUseMpegts
-                                  ? AppColors.textPrimary
+                                  ? AppColors.onAccent
                                   : AppColors.textSecondary,
-                              fontWeight: options.hlsUseMpegts
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
+                              fontWeight: FontWeight.w700,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1172,15 +1463,13 @@ class _PreviewViewState extends State<PreviewView> {
             ],
           ),
           if (resource.isUpcoming || resource.isPostLive) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Wait for broadcast (--wait-for-video):',
-                  style: AppStyles.caption.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+                  'WAIT FOR STREAM (--wait-for-video)',
+                  style: AppStyles.monoSmall.copyWith(fontSize: 10.5),
                 ),
                 DropdownButtonHideUnderline(
                   child: DropdownButton<int?>(
@@ -1188,11 +1477,11 @@ class _PreviewViewState extends State<PreviewView> {
                     isDense: true,
                     dropdownColor: AppColors.surfaceElevated,
                     items: const [
-                      DropdownMenuItem(value: null, child: Text('Do not wait')),
-                      DropdownMenuItem(value: 15, child: Text('Poll 15s')),
-                      DropdownMenuItem(value: 30, child: Text('Poll 30s')),
-                      DropdownMenuItem(value: 60, child: Text('Poll 60s')),
-                      DropdownMenuItem(value: 300, child: Text('Poll 5m')),
+                      DropdownMenuItem(value: null, child: Text('DISABLED')),
+                      DropdownMenuItem(value: 15, child: Text('POLL 15S')),
+                      DropdownMenuItem(value: 30, child: Text('POLL 30S')),
+                      DropdownMenuItem(value: 60, child: Text('POLL 60S')),
+                      DropdownMenuItem(value: 300, child: Text('POLL 5M')),
                     ],
                     style: AppStyles.monoAccent.copyWith(fontSize: 11),
                     onChanged: searchCtrl.setWaitForVideo,
@@ -1206,201 +1495,37 @@ class _PreviewViewState extends State<PreviewView> {
     );
   }
 
-  Widget _buildThumbnail(MediaResource resource, {double height = 280}) {
-    final badgeColor = switch (resource.liveStatus) {
-      LiveStatus.isLive => AppColors.accent,
-      LiveStatus.isUpcoming => AppColors.warning,
-      LiveStatus.postLive => AppColors.warning,
-      LiveStatus.wasLive => AppColors.surfaceElevated,
-      LiveStatus.notLive => AppColors.accent,
-    };
-
-    return Container(
-      width: double.infinity,
-      height: 250,
-      decoration: BoxDecoration(
-        color: AppColors.surfaceElevated,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border, width: 1.0),
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (resource.thumbnail != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(13),
-              child: Image.network(
-                resource.thumbnail!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const Center(
-                  child: Icon(
-                    Icons.movie_outlined,
-                    size: 40,
-                    color: AppColors.textMuted,
-                  ),
-                ),
-              ),
-            )
-          else
-            const Center(
-              child: Icon(
-                Icons.movie_outlined,
-                size: 40,
-                color: AppColors.textMuted,
-              ),
-            ),
-
-          // Duration or Live Status Meta Badge (Bottom-Right)
-          // if (resource.isLive)
-          //   Positioned(
-          //     right: 10,
-          //     bottom: 10,
-          //     child: Container(
-          //       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          //       decoration: BoxDecoration(
-          //         color: Colors.black.withValues(alpha: 0.82),
-          //         borderRadius: BorderRadius.circular(4),
-          //         border: Border.all(color: AppColors.accentBright),
-          //       ),
-          //       child: Text(
-          //         resource.concurrentViewCount != null
-          //             ? '${Formatters.formatCompactNumber(resource.concurrentViewCount)} LIVE'
-          //             : 'LIVE STREAM',
-          //         style: AppStyles.monoSmall.copyWith(
-          //           color: AppColors.accentBright,
-          //           fontWeight: FontWeight.w700,
-          //           fontSize: 10.5,
-          //         ),
-          //       ),
-          //     ),
-          //   )
-          if (resource.isUpcoming && resource.releaseTimestamp != null)
-            Positioned(
-              right: 10,
-              bottom: 10,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.82),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: AppColors.warning),
-                ),
-                child: Text(
-                  Formatters.formatReleaseTimestamp(resource.releaseTimestamp),
-                  style: AppStyles.monoSmall.copyWith(
-                    color: AppColors.warning,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 10.5,
-                  ),
-                ),
-              ),
-            )
-          else if (resource.durationSeconds != null)
-            Positioned(
-              right: 10,
-              bottom: 10,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.white10),
-                ),
-                child: Text(
-                  Formatters.formatDuration(resource.durationSeconds),
-                  style: AppStyles.monoSmall.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ),
-
-          // Live Status / Source Tag (Top-Left)
-          Positioned(
-            left: 10,
-            top: 10,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: badgeColor.withValues(alpha: 0.92),
-                borderRadius: BorderRadius.circular(4),
-                border: resource.wasLive
-                    ? Border.all(color: AppColors.borderLight)
-                    : null,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (resource.isLive) ...[
-                    const Icon(
-                      Icons.fiber_manual_record_rounded,
-                      size: 10,
-                      color: AppColors.onAccent,
-                    ),
-                    const SizedBox(width: 4),
-                  ] else if (resource.isUpcoming) ...[
-                    const Icon(
-                      Icons.schedule_rounded,
-                      size: 11,
-                      color: AppColors.onAccent,
-                    ),
-                    const SizedBox(width: 4),
-                  ],
-                  Text(
-                    resource.liveStatus.badgeLabel,
-                    style: AppStyles.monoSmall.copyWith(
-                      color: resource.wasLive
-                          ? AppColors.textPrimary
-                          : AppColors.onAccent,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildStreamTypeToggle(
     SearchFormatController searchCtrl,
     bool isAudio,
   ) {
     return Container(
-      height: 40,
-      padding: const EdgeInsets.all(3),
+      height: 44,
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.borderLight),
       ),
       child: Row(
-        spacing: 10,
         children: [
           Expanded(
             child: GestureDetector(
               onTap: () {
-                if (isAudio) {
-                  searchCtrl.setAudioOnly(false);
-                }
+                if (isAudio) searchCtrl.setAudioOnly(false);
               },
               child: Container(
                 decoration: BoxDecoration(
                   color: !isAudio ? AppColors.accent : Colors.transparent,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(7),
                 ),
                 alignment: Alignment.center,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.video_collection_outlined,
-                      size: 15,
+                      Icons.videocam_outlined,
+                      size: 16,
                       color: !isAudio
                           ? AppColors.onAccent
                           : AppColors.textSecondary,
@@ -1412,9 +1537,8 @@ class _PreviewViewState extends State<PreviewView> {
                         color: !isAudio
                             ? AppColors.onAccent
                             : AppColors.textSecondary,
-                        fontWeight: !isAudio
-                            ? FontWeight.w700
-                            : FontWeight.w500,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
                       ),
                     ),
                   ],
@@ -1425,22 +1549,20 @@ class _PreviewViewState extends State<PreviewView> {
           Expanded(
             child: GestureDetector(
               onTap: () {
-                if (!isAudio) {
-                  searchCtrl.setAudioOnly(true);
-                }
+                if (!isAudio) searchCtrl.setAudioOnly(true);
               },
               child: Container(
                 decoration: BoxDecoration(
                   color: isAudio ? AppColors.accent : Colors.transparent,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(7),
                 ),
                 alignment: Alignment.center,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.audiotrack_rounded,
-                      size: 15,
+                      Icons.graphic_eq_rounded,
+                      size: 16,
                       color: isAudio
                           ? AppColors.onAccent
                           : AppColors.textSecondary,
@@ -1452,7 +1574,8 @@ class _PreviewViewState extends State<PreviewView> {
                         color: isAudio
                             ? AppColors.onAccent
                             : AppColors.textSecondary,
-                        fontWeight: isAudio ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
                       ),
                     ),
                   ],
@@ -1469,7 +1592,6 @@ class _PreviewViewState extends State<PreviewView> {
     required String title,
     required String subtitle,
     required IconData icon,
-    required Color accentColor,
     required List<FormatItem> formats,
     required FormatItem? selectedFormat,
     required String emptyLabel,
@@ -1484,7 +1606,7 @@ class _PreviewViewState extends State<PreviewView> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
@@ -1495,10 +1617,11 @@ class _PreviewViewState extends State<PreviewView> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.15),
+                  color: AppColors.surfaceElevated,
                   borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppColors.borderLight),
                 ),
-                child: Icon(icon, size: 15, color: accentColor),
+                child: Icon(icon, size: 15, color: AppColors.textPrimary),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -1511,50 +1634,36 @@ class _PreviewViewState extends State<PreviewView> {
                           title,
                           style: AppStyles.monoHeadline.copyWith(
                             fontSize: 12,
-                            letterSpacing: 0.8,
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.0,
                           ),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
                             vertical: 1,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.chipBackground,
-                            borderRadius: BorderRadius.circular(10),
+                            color: AppColors.surfaceElevated,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppColors.borderLight),
                           ),
                           child: Text(
                             '${formats.length}',
                             style: AppStyles.monoSmall.copyWith(
                               fontSize: 10,
-                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: AppStyles.caption.copyWith(
-                        fontSize: 10.5,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
+                    Text(subtitle, style: AppStyles.caption),
                   ],
                 ),
               ),
-              // if (activeSelection != null)
-              //   Text(
-              //     'ID: ${activeSelection.formatId}',
-              //     style: AppStyles.monoSmall.copyWith(
-              //       color: AppColors.textMuted,
-              //       fontSize: 10.5,
-              //     ),
-              //   ),
             ],
           ),
           const SizedBox(height: 12),
@@ -1569,10 +1678,7 @@ class _PreviewViewState extends State<PreviewView> {
               ),
               child: Text(
                 emptyLabel,
-                style: AppStyles.bodyMedium.copyWith(
-                  color: AppColors.textMuted,
-                  fontSize: 12,
-                ),
+                style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
               ),
             )
           else
@@ -1591,12 +1697,12 @@ class _PreviewViewState extends State<PreviewView> {
                   borderRadius: BorderRadius.circular(10),
                   icon: const Icon(
                     Icons.keyboard_arrow_down_rounded,
-                    color: AppColors.textSecondary,
+                    color: AppColors.textPrimary,
                   ),
                   items: formats.map((format) {
                     return DropdownMenuItem<FormatItem>(
                       value: format,
-                      child: _buildDropdownItem(format, icon, accentColor),
+                      child: _buildDropdownItem(format, icon),
                     );
                   }).toList(),
                   onChanged: onChanged,
@@ -1608,11 +1714,7 @@ class _PreviewViewState extends State<PreviewView> {
     );
   }
 
-  Widget _buildDropdownItem(
-    FormatItem format,
-    IconData icon,
-    Color accentColor,
-  ) {
+  Widget _buildDropdownItem(FormatItem format, IconData icon) {
     final isAudioTrack = format.isAudioOnly;
     final codec = isAudioTrack
         ? (format.acodec != null && format.acodec != 'none'
@@ -1625,16 +1727,16 @@ class _PreviewViewState extends State<PreviewView> {
     return Row(
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: AppColors.chipBackground,
+            color: AppColors.background,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(color: AppColors.borderLight),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 12, color: accentColor),
+              Icon(icon, size: 12, color: AppColors.textPrimary),
               const SizedBox(width: 5),
               Text(
                 format.displayQuality,
@@ -1647,56 +1749,48 @@ class _PreviewViewState extends State<PreviewView> {
             ],
           ),
         ),
-        const SizedBox(width: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            format.ext.toUpperCase(),
-            style: AppStyles.monoSmall.copyWith(fontSize: 10),
+        const SizedBox(width: 8),
+        Text(
+          format.ext.toUpperCase(),
+          style: AppStyles.monoSmall.copyWith(
+            fontSize: 10.5,
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w700,
           ),
         ),
-        if (!isAudioTrack && format.fps != null && format.fps! > 30) ...[
-          const SizedBox(width: 6),
-          Text(
-            '${format.fps}fps',
-            style: AppStyles.monoAccent.copyWith(fontSize: 10.5),
-          ),
-        ],
         if (codec != null) ...[
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              '• $codec',
-              style: AppStyles.caption.copyWith(color: AppColors.textSecondary),
+              '• ${codec.toUpperCase()}',
+              style: AppStyles.monoSmall.copyWith(
+                fontSize: 10,
+                color: AppColors.textSecondary,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
         ] else
           const Spacer(),
         if (codec != null) const Spacer(),
-        if (format.isHls) ...[
-          const SizedBox(width: 6),
+        if (format.isHls)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
             decoration: BoxDecoration(
               color: AppColors.accentMuted,
               borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: AppColors.borderLight),
             ),
             child: Text(
               'HLS',
               style: AppStyles.monoSmall.copyWith(
-                color: AppColors.accentBright,
+                color: AppColors.textPrimary,
                 fontSize: 9.5,
                 fontWeight: FontWeight.w700,
               ),
             ),
-          ),
-        ] else if (format.filesize != null) ...[
-          const SizedBox(width: 8),
+          )
+        else if (format.filesize != null)
           Text(
             Formatters.formatBytes(format.filesize!),
             style: AppStyles.monoSmall.copyWith(
@@ -1704,7 +1798,6 @@ class _PreviewViewState extends State<PreviewView> {
               fontSize: 11,
             ),
           ),
-        ],
       ],
     );
   }
@@ -1722,22 +1815,22 @@ class _PreviewViewState extends State<PreviewView> {
     final String buttonLabel;
     final IconData buttonIcon;
     if (isPlaylist) {
-      buttonLabel = 'DOWNLOAD $selectedCount SELECTED ITEMS';
+      buttonLabel = 'DOWNLOAD $selectedCount SELECTED TRACKS';
       buttonIcon = Icons.playlist_add_check_rounded;
     } else if (resource.isLive) {
-      buttonLabel = 'START RECORDING';
+      buttonLabel = 'START LIVE RECORDING';
       buttonIcon = Icons.sensors_rounded;
     } else if (resource.isUpcoming) {
-      buttonLabel = 'WAIT & DOWNLOAD STREAM';
+      buttonLabel = 'QUEUE SCHEDULED STREAM';
       buttonIcon = Icons.schedule_send_rounded;
     } else {
-      buttonLabel = 'DOWNLOAD';
-      buttonIcon = Icons.downloading_rounded;
+      buttonLabel = 'START DOWNLOAD';
+      buttonIcon = Icons.south_rounded;
     }
 
     return SizedBox(
       width: double.infinity,
-      height: 50,
+      height: 52,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           backgroundColor: isDisabled
@@ -1746,14 +1839,15 @@ class _PreviewViewState extends State<PreviewView> {
           foregroundColor: isDisabled
               ? AppColors.textMuted
               : AppColors.onAccent,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           elevation: 0,
         ),
         onPressed: isDisabled
             ? null
             : () async {
                 final tab = downloadCtrl.createTab(title: resource.title);
-
                 final tasks = await searchCtrl.startDownloadTasks(
                   targetTabId: tab.id,
                 );
@@ -1778,7 +1872,7 @@ class _PreviewViewState extends State<PreviewView> {
           children: [
             Icon(
               buttonIcon,
-              size: 20,
+              size: 19,
               color: isDisabled ? AppColors.textMuted : AppColors.onAccent,
             ),
             const SizedBox(width: 10),
@@ -1786,9 +1880,9 @@ class _PreviewViewState extends State<PreviewView> {
               buttonLabel,
               style: AppStyles.monoHeadline.copyWith(
                 color: isDisabled ? AppColors.textMuted : AppColors.onAccent,
-                fontSize: 13.5,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.4,
               ),
             ),
           ],

@@ -19,14 +19,36 @@ class SettingsView extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        centerTitle: true,
-        title: Text(
-          'SETTINGS',
-          style: AppStyles.monoHeadline.copyWith(
-            fontSize: 14,
-            letterSpacing: 4.0,
-            fontWeight: FontWeight.w700,
-          ),
+        titleSpacing: 22,
+        centerTitle: false,
+        title: Row(
+          children: [
+            Text(
+              'SYSTEM CONFIG',
+              style: AppStyles.monoHeadline.copyWith(
+                fontSize: 15,
+                letterSpacing: 2.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.borderLight),
+              ),
+              child: Text(
+                settings.ytDlpUpdateChannel.toUpperCase(),
+                style: AppStyles.monoSmall.copyWith(
+                  fontSize: 10,
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
@@ -34,44 +56,38 @@ class SettingsView extends StatelessWidget {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Engine Toolchain Diagnostics Card
-            _buildEngineCard(context, settingsCtrl, versions),
-            const SizedBox(height: 24),
+            _buildEngineBentoCard(context, settingsCtrl, versions),
+            const SizedBox(height: 22),
 
-            // Performance & Downloader (aria2c)
-            _buildSectionHeader('DOWNLOAD ACCELERATION (aria2c)'),
+            _buildSectionHeader('ACCELERATION // ARIA2C'),
             const SizedBox(height: 10),
             _buildSettingCard(
               children: [
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  activeColor: AppColors.accent,
                   title: Text(
-                    'Use aria2c Multi-Connection',
-                    style: AppStyles.bodyLarge,
+                    'aria2c Multi-Socket Engine',
+                    style: AppStyles.monoLabel,
                   ),
                   subtitle: Text(
-                    'Accelerates downloads with parallel sockets',
-                    style: AppStyles.bodyMedium,
+                    'Parallel segment acceleration for non-live streams',
+                    style: AppStyles.caption,
                   ),
                   value: settings.useAria2c,
-                  onChanged: (val) => settingsCtrl.toggleUseAria2c(val),
+                  onChanged: settingsCtrl.toggleUseAria2c,
                 ),
                 const Divider(),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    Text('PARALLEL CONNECTIONS', style: AppStyles.monoSmall),
                     Text(
-                      'Parallel Connections per Server',
-                      style: AppStyles.bodyLarge,
-                    ),
-                    Text(
-                      '${settings.aria2Threads} threads',
+                      '${settings.aria2Threads} THREADS',
                       style: AppStyles.monoAccent,
                     ),
                   ],
@@ -81,21 +97,16 @@ class SettingsView extends StatelessWidget {
                   min: 1,
                   max: 16,
                   divisions: 15,
-                  activeColor: AppColors.accent,
-                  inactiveColor: AppColors.surfaceHighlight,
                   onChanged: (val) => settingsCtrl.setAria2Threads(val.round()),
                 ),
                 const Divider(),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    Text('CONCURRENT QUEUE WORKERS', style: AppStyles.monoSmall),
                     Text(
-                      'Max Concurrent Downloads',
-                      style: AppStyles.bodyLarge,
-                    ),
-                    Text(
-                      '${settings.maxConcurrentDownloads} tasks',
+                      '${settings.maxConcurrentDownloads} TASKS',
                       style: AppStyles.monoAccent,
                     ),
                   ],
@@ -105,139 +116,41 @@ class SettingsView extends StatelessWidget {
                   min: 1,
                   max: 5,
                   divisions: 4,
-                  activeColor: AppColors.accent,
-                  inactiveColor: AppColors.surfaceHighlight,
                   onChanged: (val) =>
                       settingsCtrl.setMaxConcurrent(val.round()),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
 
-            // Network Constraints
-            _buildSectionHeader('NETWORK & STORAGE'),
+            _buildSectionHeader('STORAGE & DEFAULTS'),
             const SizedBox(height: 10),
             _buildSettingCard(
               children: [
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  activeColor: AppColors.accent,
-                  title: Text(
-                    'Download on Wi-Fi Only',
-                    style: AppStyles.bodyLarge,
-                  ),
-                  subtitle: Text(
-                    'Prevents accidental cellular data usage',
-                    style: AppStyles.monoLabel.copyWith(
-                      color: AppStyles.monoSmall.color,
-                    ),
-                  ),
-                  value: settings.wifiOnly,
-                  onChanged: (val) => settingsCtrl.toggleWifiOnly(val),
-                ),
-                const Divider(),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text('Download Directory', style: AppStyles.bodyLarge),
+                  title: Text('Output Directory', style: AppStyles.monoLabel),
                   subtitle: Text(
                     settings.downloadDirectory.isNotEmpty
                         ? settings.downloadDirectory
                         : 'Download/Ramen',
                     style: AppStyles.monoSmall.copyWith(
-                      color: AppColors.accentBright,
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   trailing: const Icon(
                     Icons.folder_open_rounded,
-                    color: AppColors.textSecondary,
+                    size: 18,
+                    color: AppColors.textPrimary,
                   ),
                   onTap: () => _showEditDirectoryDialog(context, settingsCtrl),
                 ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Background Processing & Service
-            _buildSectionHeader('BACKGROUND PROCESSING'),
-            const SizedBox(height: 10),
-            _buildSettingCard(
-              children: [
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  activeColor: AppColors.accent,
-                  title: Text(
-                    'Background Processing',
-                    style: AppStyles.bodyLarge,
-                  ),
-                  subtitle: Text(
-                    'Allow running in the background when minimized',
-                    style: AppStyles.monoLabel.copyWith(
-                      color: AppStyles.monoSmall.color,
-                    ),
-                  ),
-                  value: settings.enableBackgroundProcessing,
-                  onChanged: (val) =>
-                      settingsCtrl.toggleBackgroundProcessing(val),
-                ),
-                const Divider(),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  activeColor: AppColors.accent,
-                  title: Text('Notifications', style: AppStyles.bodyLarge),
-                  subtitle: Text(
-                    'Show live progress and completion alerts while Ramen is in the background',
-                    style: AppStyles.monoLabel.copyWith(
-                      color: AppStyles.monoSmall.color,
-                    ),
-                  ),
-                  value: settings.backgroundNotifications,
-                  onChanged: settings.enableBackgroundProcessing
-                      ? (val) => settingsCtrl.toggleBackgroundNotifications(val)
-                      : null,
-                ),
                 const Divider(),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(
-                    'Unrestricted Battery Usage',
-                    style: AppStyles.bodyLarge,
-                  ),
-                  subtitle: Text(
-                    settingsCtrl.isIgnoringBatteryOptimizations
-                        ? 'Android will not throttle background jobs'
-                        : 'Tap to exempt Ramen from Android battery optimization',
-                    style: AppStyles.monoLabel.copyWith(
-                      color: settingsCtrl.isIgnoringBatteryOptimizations
-                          ? AppColors.success
-                          : AppColors.warning,
-                    ),
-                  ),
-                  trailing: Icon(
-                    settingsCtrl.isIgnoringBatteryOptimizations
-                        ? Icons.verified_rounded
-                        : Icons.battery_saver_rounded,
-                    color: settingsCtrl.isIgnoringBatteryOptimizations
-                        ? AppColors.success
-                        : AppColors.warning,
-                  ),
-                  onTap: settingsCtrl.isIgnoringBatteryOptimizations
-                      ? null
-                      : () => settingsCtrl.requestUnrestrictedBattery(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Format Preferences
-            _buildSectionHeader('DEFAULTS'),
-            const SizedBox(height: 10),
-            _buildSettingCard(
-              children: [
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    'Preferred Audio Format',
-                    style: AppStyles.bodyLarge,
+                    'Default Audio Format',
+                    style: AppStyles.monoLabel,
                   ),
                   trailing: DropdownButton<String>(
                     dropdownColor: AppColors.surfaceElevated,
@@ -263,8 +176,8 @@ class SettingsView extends StatelessWidget {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(
-                    'Preferred Video Container',
-                    style: AppStyles.bodyLarge,
+                    'Default Video Container',
+                    style: AppStyles.monoLabel,
                   ),
                   trailing: DropdownButton<String>(
                     dropdownColor: AppColors.surfaceElevated,
@@ -286,93 +199,87 @@ class SettingsView extends StatelessWidget {
                     },
                   ),
                 ),
+                const Divider(),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text('Wi-Fi Only Transfers', style: AppStyles.monoLabel),
+                  subtitle: Text(
+                    'Block downloads over cellular connections',
+                    style: AppStyles.caption,
+                  ),
+                  value: settings.wifiOnly,
+                  onChanged: settingsCtrl.toggleWifiOnly,
+                ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
 
-            // 403 Forbidden & Seal Anti-Block Measures
-            _buildSectionHeader('FORBIDDEN & BOT-CHECK BYPASS'),
+            _buildSectionHeader('AUTHENTICATION & 403 BYPASS'),
             const SizedBox(height: 10),
             _buildSettingCard(
               children: [
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(
-                    'yt-dlp Update Channel',
-                    style: AppStyles.bodyLarge,
-                  ),
-                  subtitle: Text(
-                    'Toggle between Nightly and Stable releases',
-                    style: AppStyles.caption,
-                  ),
-                  trailing: DropdownButton<String>(
-                    dropdownColor: AppColors.surfaceElevated,
-                    value: settings.ytDlpUpdateChannel,
-                    underline: const SizedBox(),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'nightly',
-                        child: Text('NIGHTLY'),
-                      ),
-                      DropdownMenuItem(value: 'stable', child: Text('STABLE')),
-                    ],
+                    'Netscape Cookies (cookies.txt)',
                     style: AppStyles.monoLabel,
-                    onChanged: (val) {
-                      if (val != null) {
-                        settingsCtrl.setYtDlpUpdateChannel(val);
-                      }
-                    },
-                  ),
-                ),
-                const Divider(),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    'Silent WebView Cookie & UA Engine',
-                    style: AppStyles.bodyLarge,
-                  ),
-                  subtitle: Text(
-                    'Harvests session cookies & matching User-Agent silently in the background without opening a browser popup',
-                    style: AppStyles.caption,
-                  ),
-                  trailing: TextButton(
-                    onPressed: settingsCtrl.isUpdating
-                        ? null
-                        : () => settingsCtrl.refreshSilentCookies(),
-                    child: Text('SYNC NOW', style: AppStyles.monoAccent),
-                  ),
-                ),
-                const Divider(),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    'Import Cookies (cookies.txt)',
-                    style: AppStyles.bodyLarge,
                   ),
                   subtitle: Text(
                     settings.cookiesFilePath.isNotEmpty
-                        ? 'Authenticated cookies.txt active for Instagram / YouTube'
-                        : 'Paste Netscape cookies.txt for age-gated or private Instagram posts',
+                        ? 'ACTIVE // Authenticated cookies loaded'
+                        : 'Import cookies.txt for Instagram, YouTube & X',
                     style: AppStyles.caption.copyWith(
                       color: settings.cookiesFilePath.isNotEmpty
-                          ? AppColors.success
-                          : AppColors.textSecondary,
+                          ? AppColors.textPrimary
+                          : AppColors.textMuted,
                     ),
                   ),
                   trailing: const Icon(
-                    Icons.cookie_outlined,
+                    Icons.key_rounded,
                     size: 18,
-                    color: AppColors.accentBright,
+                    color: AppColors.textPrimary,
                   ),
                   onTap: () => _showEditCookiesDialog(context, settingsCtrl),
                 ),
                 const Divider(),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    'Silent WebView Session Sync',
+                    style: AppStyles.monoLabel,
+                  ),
+                  subtitle: Text(
+                    'Harvests session cookies & User-Agent in background',
+                    style: AppStyles.caption,
+                  ),
+                  trailing: OutlinedButton(
+                    onPressed: settingsCtrl.isUpdating
+                        ? null
+                        : settingsCtrl.refreshSilentCookies,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      'SYNC',
+                      style: AppStyles.monoSmall.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+                ),
+                const Divider(),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  activeColor: AppColors.accent,
-                  title: Text('Force IPv4 (-4)', style: AppStyles.bodyLarge),
+                  title: Text('Force IPv4 (-4)', style: AppStyles.monoLabel),
                   subtitle: Text(
-                    'Prevents IPv6/IPv4 signed URL mismatches that trigger HTTP 403',
+                    'Prevents IPv6/IPv4 CDN signature mismatches',
                     style: AppStyles.caption,
                   ),
                   value: settings.forceIpv4,
@@ -383,13 +290,12 @@ class SettingsView extends StatelessWidget {
                 const Divider(),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  activeColor: AppColors.accent,
                   title: Text(
-                    'Protocol Compatibility (-S proto,vcodec:h264,ext)',
-                    style: AppStyles.bodyLarge,
+                    'Protocol Compatibility (-S proto)',
+                    style: AppStyles.monoLabel,
                   ),
                   subtitle: Text(
-                    'Prefers direct HTTPS streams over fragmented DASH/HLS segments',
+                    'Prefer direct HTTPS streams over fragmented DASH',
                     style: AppStyles.caption,
                   ),
                   value: settings.preferProtocolCompatibility,
@@ -397,75 +303,102 @@ class SettingsView extends StatelessWidget {
                     settings.copyWith(preferProtocolCompatibility: val),
                   ),
                 ),
-                const Divider(),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  activeColor: AppColors.accent,
-                  title: Text(
-                    'Square Audio Cover Art Crop',
-                    style: AppStyles.bodyLarge,
-                  ),
-                  subtitle: Text(
-                    'Converts WebP thumbnails to JPEG and crops 1:1 album artwork',
-                    style: AppStyles.caption,
-                  ),
-                  value: settings.cropAudioArtwork,
-                  onChanged: (val) => settingsCtrl.updateSettings(
-                    settings.copyWith(cropAudioArtwork: val),
-                  ),
-                ),
-                const Divider(),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  activeColor: AppColors.accent,
-                  title: Text(
-                    'Restrict Filenames to ASCII',
-                    style: AppStyles.bodyLarge,
-                  ),
-                  subtitle: Text(
-                    'Strips special characters & spaces alongside 200-byte title truncation',
-                    style: AppStyles.caption,
-                  ),
-                  value: settings.restrictFilenames,
-                  onChanged: (val) => settingsCtrl.updateSettings(
-                    settings.copyWith(restrictFilenames: val),
-                  ),
-                ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
 
-            // Advanced yt-dlp Engine Options (Pro)
-            _buildSectionHeader('ADVANCED YT-DLP CONFIGURATION (PRO)'),
+            _buildSectionHeader('BACKGROUND & POST-PROCESSING'),
             const SizedBox(height: 10),
             _buildSettingCard(
               children: [
-                ListTile(
+                SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: AppColors.chipBackground,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Icon(
-                      Icons.tune_rounded,
-                      size: 16,
-                      color: AppColors.accentBright,
-                    ),
-                  ),
                   title: Text(
-                    'Interactive yt-dlp Suite',
-                    style: AppStyles.bodyLarge,
+                    'Background Service',
+                    style: AppStyles.monoLabel,
                   ),
                   subtitle: Text(
-                    'Full visual editor for aria2c, proxy, cookies & CLI flags',
+                    'Keep extractions running when app is minimized',
+                    style: AppStyles.caption,
+                  ),
+                  value: settings.enableBackgroundProcessing,
+                  onChanged: settingsCtrl.toggleBackgroundProcessing,
+                ),
+                const Divider(),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    'Unrestricted Battery Mode',
+                    style: AppStyles.monoLabel,
+                  ),
+                  subtitle: Text(
+                    settingsCtrl.isIgnoringBatteryOptimizations
+                        ? 'EXEMPTED // Background jobs unrestricted'
+                        : 'Tap to exempt Ramen from Android battery throttling',
+                    style: AppStyles.caption,
+                  ),
+                  trailing: Icon(
+                    settingsCtrl.isIgnoringBatteryOptimizations
+                        ? Icons.verified_outlined
+                        : Icons.battery_saver_rounded,
+                    size: 18,
+                    color: AppColors.textPrimary,
+                  ),
+                  onTap: settingsCtrl.isIgnoringBatteryOptimizations
+                      ? null
+                      : settingsCtrl.requestUnrestrictedBattery,
+                ),
+                const Divider(),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    'Embed Artwork & Metadata',
+                    style: AppStyles.monoLabel,
+                  ),
+                  subtitle: Text(
+                    'Write ID3 tags, 1:1 album cover art & chapters',
+                    style: AppStyles.caption,
+                  ),
+                  value: settings.embedThumbnail,
+                  onChanged: (val) => settingsCtrl.updateSettings(
+                    settings.copyWith(
+                      embedThumbnail: val,
+                      embedMetadata: val,
+                      embedChapters: val,
+                    ),
+                  ),
+                ),
+                const Divider(),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    'SponsorBlock Auto-Cut',
+                    style: AppStyles.monoLabel,
+                  ),
+                  subtitle: Text(
+                    'Strip sponsor segments & intros automatically',
+                    style: AppStyles.caption,
+                  ),
+                  value: settings.enableSponsorBlock,
+                  onChanged: (val) => settingsCtrl.updateSettings(
+                    settings.copyWith(enableSponsorBlock: val),
+                  ),
+                ),
+                const Divider(),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    'Interactive yt-dlp CLI Suite',
+                    style: AppStyles.monoLabel,
+                  ),
+                  subtitle: Text(
+                    'Configure proxy, rate limit, subtitles & raw flags',
                     style: AppStyles.caption,
                   ),
                   trailing: const Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 14,
-                    color: AppColors.textMuted,
+                    Icons.north_east_rounded,
+                    size: 17,
+                    color: AppColors.textPrimary,
                   ),
                   onTap: () {
                     showModalBottomSheet(
@@ -476,178 +409,23 @@ class SettingsView extends StatelessWidget {
                         initialOptions: settings.toYtDlpOptions(),
                         targetUrl: 'https://example.com/video',
                         formatId: 'bestvideo+bestaudio/best',
-                        onOptionsChanged: (newOpts) =>
-                            settingsCtrl.updateFromYtDlpOptions(newOpts),
+                        onOptionsChanged: settingsCtrl.updateFromYtDlpOptions,
                       ),
                     );
                   },
                 ),
-                const Divider(),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  activeColor: AppColors.accent,
-                  title: Text('Embed Subtitles', style: AppStyles.bodyLarge),
-                  subtitle: Text(
-                    'Embeds subs into MP4/MKV video stream',
-                    style: AppStyles.caption,
-                  ),
-                  value: settings.embedSubtitles,
-                  onChanged: (val) => settingsCtrl.updateSettings(
-                    settings.copyWith(embedSubtitles: val),
-                  ),
-                ),
-                const Divider(),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  activeColor: AppColors.accent,
-                  title: Text(
-                    'Embed Thumbnail & Artwork',
-                    style: AppStyles.bodyLarge,
-                  ),
-                  subtitle: Text(
-                    'Attach cover image to media tags',
-                    style: AppStyles.caption,
-                  ),
-                  value: settings.embedThumbnail,
-                  onChanged: (val) => settingsCtrl.updateSettings(
-                    settings.copyWith(embedThumbnail: val),
-                  ),
-                ),
-                const Divider(),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  activeColor: AppColors.accent,
-                  title: Text(
-                    'Embed Chapters & Metadata',
-                    style: AppStyles.bodyLarge,
-                  ),
-                  subtitle: Text(
-                    'Writes artist, title and chapter intervals',
-                    style: AppStyles.caption,
-                  ),
-                  value: settings.embedChapters,
-                  onChanged: (val) => settingsCtrl.updateSettings(
-                    settings.copyWith(embedChapters: val, embedMetadata: val),
-                  ),
-                ),
-                const Divider(),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  activeColor: AppColors.accent,
-                  title: Text(
-                    'SponsorBlock (Auto-Skip)',
-                    style: AppStyles.bodyLarge,
-                  ),
-                  subtitle: Text(
-                    'Removes sponsor segments and filler intros',
-                    style: AppStyles.caption,
-                  ),
-                  value: settings.enableSponsorBlock,
-                  onChanged: (val) => settingsCtrl.updateSettings(
-                    settings.copyWith(enableSponsorBlock: val),
-                  ),
-                ),
-                const Divider(),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  activeColor: AppColors.accent,
-                  title: Text('Geographic Bypass', style: AppStyles.bodyLarge),
-                  subtitle: Text(
-                    'Bypasses geographical restrictions',
-                    style: AppStyles.caption,
-                  ),
-                  value: settings.geoBypass,
-                  onChanged: (val) => settingsCtrl.updateSettings(
-                    settings.copyWith(geoBypass: val),
-                  ),
-                ),
-                const Divider(),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('Network Proxy', style: AppStyles.bodyLarge),
-                  subtitle: Text(
-                    settings.proxy.isNotEmpty
-                        ? settings.proxy
-                        : 'Direct connection (No proxy)',
-                    style: AppStyles.monoSmall.copyWith(
-                      color: settings.proxy.isNotEmpty
-                          ? AppColors.accentBright
-                          : AppColors.textMuted,
-                    ),
-                  ),
-                  trailing: const Icon(
-                    Icons.edit_outlined,
-                    size: 18,
-                    color: AppColors.textSecondary,
-                  ),
-                  onTap: () => _showEditProxyDialog(context, settingsCtrl),
-                ),
-                const Divider(),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('Rate Limit', style: AppStyles.bodyLarge),
-                  subtitle: Text(
-                    settings.rateLimit.isNotEmpty
-                        ? settings.rateLimit
-                        : 'Unlimited bandwidth',
-                    style: AppStyles.monoSmall.copyWith(
-                      color: settings.rateLimit.isNotEmpty
-                          ? AppColors.accentBright
-                          : AppColors.textMuted,
-                    ),
-                  ),
-                  trailing: const Icon(
-                    Icons.edit_outlined,
-                    size: 18,
-                    color: AppColors.textSecondary,
-                  ),
-                  onTap: () => _showEditRateLimitDialog(context, settingsCtrl),
-                ),
-                const Divider(),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    'Custom yt-dlp Flags',
-                    style: AppStyles.bodyLarge,
-                  ),
-                  subtitle: Text(
-                    settings.rawCustomArgs.isNotEmpty
-                        ? settings.rawCustomArgs
-                        : 'None specified',
-                    style: AppStyles.monoSmall.copyWith(
-                      color: settings.rawCustomArgs.isNotEmpty
-                          ? AppColors.accentBright
-                          : AppColors.textMuted,
-                    ),
-                  ),
-                  trailing: const Icon(
-                    Icons.edit_outlined,
-                    size: 18,
-                    color: AppColors.textSecondary,
-                  ),
-                  onTap: () => _showEditRawFlagsDialog(context, settingsCtrl),
-                ),
               ],
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 28),
 
-            // About Footer
             Center(
-              child: Column(
-                children: [
-                  Text(
-                    'RAMEN v2.0.0',
-                    style: AppStyles.monoLabel.copyWith(
-                      color: AppColors.textMuted,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Built with ❤️ by ToM • ©️ ramen.inc',
-                    style: AppStyles.caption,
-                  ),
-                ],
+              child: Text(
+                'RAMEN // STUDIO v2.0',
+                style: AppStyles.monoSmall.copyWith(
+                  color: AppColors.textMuted,
+                  letterSpacing: 2.0,
+                  fontSize: 10.5,
+                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -658,7 +436,7 @@ class SettingsView extends StatelessWidget {
   }
 
   Widget _buildSectionHeader(String title) {
-    return Text(title, style: AppStyles.caption.copyWith(letterSpacing: 1.0));
+    return Text(title, style: AppStyles.caption.copyWith(letterSpacing: 1.4));
   }
 
   Widget _buildSettingCard({required List<Widget> children}) {
@@ -676,17 +454,24 @@ class SettingsView extends StatelessWidget {
     );
   }
 
-  Widget _buildEngineCard(
+  Widget _buildEngineBentoCard(
     BuildContext context,
     SettingsController controller,
     Map<String, String> versions,
   ) {
+    final items = [
+      ('YT-DLP CORE', versions['ytdlp'] ?? 'CHECKING...'),
+      ('FFMPEG MUX', versions['ffmpeg'] ?? 'CHECKING...'),
+      ('ARIA2C ENGINE', versions['aria2c'] ?? 'CHECKING...'),
+      ('NODE RUNTIME', versions['node'] ?? 'CHECKING...'),
+    ];
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -694,87 +479,133 @@ class SettingsView extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('ENGINES & MODULES', style: AppStyles.caption),
-              if (controller.isUpdating)
-                Row(
-                  children: [
+              Text(
+                'TOOLCHAIN TELEMETRY',
+                style: AppStyles.monoHeadline.copyWith(
+                  fontSize: 12,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              Row(
+                children: [
+                  DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      dropdownColor: AppColors.surfaceElevated,
+                      value: controller.settings.ytDlpUpdateChannel,
+                      isDense: true,
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'nightly',
+                          child: Text('NIGHTLY'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'stable',
+                          child: Text('STABLE'),
+                        ),
+                      ],
+                      style: AppStyles.monoSmall.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 10.5,
+                      ),
+                      onChanged: (val) {
+                        if (val != null) {
+                          controller.setYtDlpUpdateChannel(val);
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (controller.isUpdating)
                     const SizedBox(
-                      width: 12,
-                      height: 12,
+                      width: 14,
+                      height: 14,
                       child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.accentBright,
+                        strokeWidth: 1.8,
+                        color: AppColors.accent,
+                      ),
+                    )
+                  else
+                    ElevatedButton(
+                      onPressed: controller.updateEngine,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.accent,
+                        foregroundColor: AppColors.onAccent,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      child: Text(
+                        'UPDATE',
+                        style: AppStyles.monoSmall.copyWith(
+                          color: AppColors.onAccent,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    Text('Updating...', style: AppStyles.monoSmall),
-                  ],
-                )
-              else
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.textPrimary,
-                    side: const BorderSide(color: AppColors.borderLight),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                  onPressed: () => controller.updateEngine(),
-                  child: Text(
-                    'CHECK UPDATES',
-                    style: AppStyles.monoSmall.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 10,
-                      letterSpacing: 0.6,
-                    ),
-                  ),
-                ),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 14),
-
-          _buildEngineRow('*yt-dlp Engine', versions['ytdlp'] ?? 'Checking...'),
-          const Divider(height: 16),
-          _buildEngineRow('*FFmpeg Muxer', versions['ffmpeg'] ?? 'Checking...'),
-          const Divider(height: 16),
-          _buildEngineRow(
-            '*aria2c Downloader',
-            versions['aria2c'] ?? 'Checking...',
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: items.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              childAspectRatio: 2.5,
+            ),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      item.$1,
+                      style: AppStyles.caption.copyWith(fontSize: 9.5),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      item.$2,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppStyles.monoLabel.copyWith(fontSize: 11),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
-          const Divider(height: 16),
-          _buildEngineRow(
-            '*Node.js Runtime',
-            versions['node'] ?? 'Checking...',
-          ),
-
           if (controller.updateMessage != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Text(
               controller.updateMessage!,
-              style: AppStyles.monoSmall.copyWith(
-                color: AppColors.accentBright,
-              ),
+              style: AppStyles.monoSmall.copyWith(color: AppColors.textPrimary),
             ),
           ],
         ],
       ),
-    );
-  }
-
-  Widget _buildEngineRow(String tool, String version) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(tool, style: AppStyles.bodyLarge),
-        Text(version, style: AppStyles.monoSmall),
-      ],
     );
   }
 
@@ -791,67 +622,42 @@ class SettingsView extends StatelessWidget {
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: AppColors.border),
+          side: const BorderSide(color: AppColors.borderLight),
         ),
-        title: Text(
-          'Download Directory',
-          style: AppStyles.titleMedium.copyWith(fontSize: 16),
-        ),
+        title: Text('OUTPUT DIRECTORY', style: AppStyles.monoHeadline),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Specify directory path for media outputs:',
-              style: AppStyles.caption,
-            ),
-            const SizedBox(height: 10),
             TextField(
               controller: textController,
               style: AppStyles.monoSmall.copyWith(color: AppColors.textPrimary),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: AppColors.surfaceElevated,
+                fillColor: AppColors.background,
                 hintText: 'Download/Ramen',
                 hintStyle: AppStyles.monoSmall.copyWith(
                   color: AppColors.textMuted,
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.border),
+                  borderSide: const BorderSide(color: AppColors.borderLight),
                 ),
               ),
             ),
-            const SizedBox(height: 10),
-            TextButton.icon(
-              icon: const Icon(
-                Icons.restore_rounded,
-                size: 16,
-                color: AppColors.accentBright,
-              ),
-              label: Text(
-                'Reset to Download/Ramen',
-                style: AppStyles.monoSmall.copyWith(
-                  color: AppColors.accentBright,
-                ),
-              ),
+            const SizedBox(height: 8),
+            TextButton(
               onPressed: () => textController.text = 'Download/Ramen',
+              child: Text('RESET DEFAULT', style: AppStyles.monoAccent),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(
-              'Cancel',
-              style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
-            ),
+            child: Text('CANCEL', style: AppStyles.monoSmall),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
-              foregroundColor: AppColors.onAccent,
-            ),
             onPressed: () {
               final newDir = textController.text.trim();
               controller.setDownloadDirectory(
@@ -860,165 +666,10 @@ class SettingsView extends StatelessWidget {
               Navigator.of(ctx).pop();
             },
             child: Text(
-              'Save',
+              'SAVE',
               style: AppStyles.monoSmall.copyWith(
                 color: AppColors.onAccent,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEditProxyDialog(
-    BuildContext context,
-    SettingsController controller,
-  ) {
-    final textController = TextEditingController(
-      text: controller.settings.proxy,
-    );
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: AppColors.border),
-        ),
-        title: Text(
-          'Network Proxy',
-          style: AppStyles.titleMedium.copyWith(fontSize: 16),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Specify SOCKS5 or HTTP proxy URL:', style: AppStyles.caption),
-            const SizedBox(height: 10),
-            TextField(
-              controller: textController,
-              style: AppStyles.monoSmall.copyWith(color: AppColors.textPrimary),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: AppColors.surfaceElevated,
-                hintText: 'socks5://127.0.0.1:1080',
-                hintStyle: AppStyles.monoSmall.copyWith(
-                  color: AppColors.textMuted,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.border),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(
-              'Cancel',
-              style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
-              foregroundColor: AppColors.onAccent,
-            ),
-            onPressed: () {
-              final newProxy = textController.text.trim();
-              controller.updateSettings(
-                controller.settings.copyWith(proxy: newProxy),
-              );
-              Navigator.of(ctx).pop();
-            },
-            child: Text(
-              'Save',
-              style: AppStyles.monoSmall.copyWith(
-                color: AppColors.onAccent,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEditRateLimitDialog(
-    BuildContext context,
-    SettingsController controller,
-  ) {
-    final textController = TextEditingController(
-      text: controller.settings.rateLimit,
-    );
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: AppColors.border),
-        ),
-        title: Text(
-          'Speed Rate Limit',
-          style: AppStyles.titleMedium.copyWith(fontSize: 16),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Maximum download rate (e.g. 5M, 500K):',
-              style: AppStyles.caption,
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: textController,
-              style: AppStyles.monoSmall.copyWith(color: AppColors.textPrimary),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: AppColors.surfaceElevated,
-                hintText: '5M',
-                hintStyle: AppStyles.monoSmall.copyWith(
-                  color: AppColors.textMuted,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.border),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(
-              'Cancel',
-              style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
-              foregroundColor: AppColors.onAccent,
-            ),
-            onPressed: () {
-              final limit = textController.text.trim();
-              controller.updateSettings(
-                controller.settings.copyWith(rateLimit: limit),
-              );
-              Navigator.of(ctx).pop();
-            },
-            child: Text(
-              'Save',
-              style: AppStyles.monoSmall.copyWith(
-                color: AppColors.onAccent,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ),
@@ -1040,18 +691,15 @@ class SettingsView extends StatelessWidget {
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: AppColors.border),
+          side: const BorderSide(color: AppColors.borderLight),
         ),
-        title: Text(
-          'Netscape Cookies (cookies.txt)',
-          style: AppStyles.titleMedium.copyWith(fontSize: 16),
-        ),
+        title: Text('NETSCAPE COOKIES.TXT', style: AppStyles.monoHeadline),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Paste Netscape-formatted cookies.txt content for authenticated Instagram, YouTube, or X access:',
+              'Paste Netscape cookies.txt lines for authenticated Instagram, YouTube, or X access:',
               style: AppStyles.caption,
             ),
             const SizedBox(height: 10),
@@ -1064,16 +712,16 @@ class SettingsView extends StatelessWidget {
               ),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: AppColors.surfaceElevated,
+                fillColor: AppColors.background,
                 hintText:
                     '# Netscape HTTP Cookie File\n.instagram.com\tTRUE\t/\tTRUE\t0\tsessionid\t...',
                 hintStyle: AppStyles.monoSmall.copyWith(
                   color: AppColors.textMuted,
-                  fontSize: 11,
+                  fontSize: 10.5,
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.border),
+                  borderSide: const BorderSide(color: AppColors.borderLight),
                 ),
               ),
             ),
@@ -1087,111 +735,24 @@ class SettingsView extends StatelessWidget {
                 if (ctx.mounted) Navigator.of(ctx).pop();
               },
               child: Text(
-                'Clear Cookies',
+                'CLEAR',
                 style: AppStyles.monoSmall.copyWith(color: AppColors.error),
               ),
             ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(
-              'Cancel',
-              style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
-            ),
+            child: Text('CANCEL', style: AppStyles.monoSmall),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
-              foregroundColor: AppColors.onAccent,
-            ),
             onPressed: () async {
               await controller.saveCustomCookies(textController.text.trim());
               if (ctx.mounted) Navigator.of(ctx).pop();
             },
             child: Text(
-              'Save',
+              'SAVE',
               style: AppStyles.monoSmall.copyWith(
                 color: AppColors.onAccent,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEditRawFlagsDialog(
-    BuildContext context,
-    SettingsController controller,
-  ) {
-    final textController = TextEditingController(
-      text: controller.settings.rawCustomArgs,
-    );
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: AppColors.border),
-        ),
-        title: Text(
-          'Custom yt-dlp Flags',
-          style: AppStyles.titleMedium.copyWith(fontSize: 16),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Pass raw arguments directly to the yt-dlp binary:',
-              style: AppStyles.caption,
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: textController,
-              maxLines: 3,
-              style: AppStyles.monoSmall.copyWith(color: AppColors.textPrimary),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: AppColors.surfaceElevated,
-                hintText: '--no-check-certificates --referer https://...',
-                hintStyle: AppStyles.monoSmall.copyWith(
-                  color: AppColors.textMuted,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.border),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(
-              'Cancel',
-              style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
-              foregroundColor: AppColors.onAccent,
-            ),
-            onPressed: () {
-              final raw = textController.text.trim();
-              controller.updateSettings(
-                controller.settings.copyWith(rawCustomArgs: raw),
-              );
-              Navigator.of(ctx).pop();
-            },
-            child: Text(
-              'Save',
-              style: AppStyles.monoSmall.copyWith(
-                color: AppColors.onAccent,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ),

@@ -48,7 +48,6 @@ class Formatters {
     return rawSpeed.trim();
   }
 
-  /// Formats a Unix epoch timestamp (in seconds) into a readable date/time string
   static String formatReleaseTimestamp(int? epochSeconds) {
     if (epochSeconds == null || epochSeconds <= 0) return 'Scheduled';
     final dt = DateTime.fromMillisecondsSinceEpoch(
@@ -73,5 +72,98 @@ class Formatters {
     final hour = dt.hour.toString().padLeft(2, '0');
     final minute = dt.minute.toString().padLeft(2, '0');
     return '$month ${dt.day}, $hour:$minute';
+  }
+
+  static String errorCodeLabel(String? rawError) {
+    if (rawError == null || rawError.trim().isEmpty) return 'ERR // ENGINE';
+    final lower = rawError.toLowerCase();
+    if (lower.contains('403') || lower.contains('forbidden')) {
+      return 'ERR // HTTP_403';
+    }
+    if (lower.contains('cookies') ||
+        lower.contains('login required') ||
+        lower.contains('sign in') ||
+        lower.contains('empty media response') ||
+        lower.contains('age-restricted')) {
+      return 'ERR // AUTH_REQUIRED';
+    }
+    if (lower.contains('private video') || lower.contains('members-only')) {
+      return 'ERR // PRIVATE_MEDIA';
+    }
+    if (lower.contains('live event will begin') ||
+        lower.contains('premieres in') ||
+        lower.contains('not currently live')) {
+      return 'ERR // LIVE_OFFLINE';
+    }
+    if (lower.contains('geo') ||
+        lower.contains('not available in your country')) {
+      return 'ERR // GEO_RESTRICTED';
+    }
+    if (lower.contains('unsupported url')) {
+      return 'ERR // UNSUPPORTED_URL';
+    }
+    if (lower.contains('timed out') ||
+        lower.contains('network') ||
+        lower.contains('connection') ||
+        lower.contains('unable to download webpage')) {
+      return 'ERR // NETWORK_IO';
+    }
+    if (lower.contains('ffmpeg') || lower.contains('postprocessing')) {
+      return 'ERR // FFMPEG_MUX';
+    }
+    return 'ERR // EXTRACTOR';
+  }
+
+  static String cleanErrorMessage(String? rawError) {
+    if (rawError == null || rawError.trim().isEmpty) {
+      return 'An unexpected media extraction error occurred.';
+    }
+    var text = rawError
+        .replaceAll(RegExp(r'^Exception:\s*', caseSensitive: false), '')
+        .replaceAll(
+          RegExp(r'^PlatformException\([^)]*\):\s*', caseSensitive: false),
+          '',
+        )
+        .trim();
+
+    final errorMatch = RegExp(
+      r'ERROR:\s*(?:\[[^\]]+\]\s*[^:]*:\s*)?(.+)',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (errorMatch != null && errorMatch.group(1) != null) {
+      text = errorMatch.group(1)!.trim();
+    }
+
+    final lower = text.toLowerCase();
+    if (lower.contains('empty media response') ||
+        lower.contains('login required') ||
+        lower.contains('sign in to confirm')) {
+      return 'Authentication required by host. Import a Netscape cookies.txt file or sync WebView cookies in Settings.';
+    }
+    if (lower.contains('http error 403') || lower.contains('403: forbidden')) {
+      return 'Access denied (HTTP 403 Forbidden). Try syncing WebView cookies or enabling IPv4 in Settings.';
+    }
+    if (lower.contains('private video')) {
+      return 'This media is private. Authenticate with valid account cookies in Settings to access it.';
+    }
+    if (lower.contains('live event will begin') ||
+        lower.contains('premieres in')) {
+      return 'Broadcast has not started yet. Enable Wait for Broadcast in Live Stream Settings to poll automatically.';
+    }
+    if (lower.contains('not available in your country')) {
+      return 'Media is geo-restricted in your region. Enable Geo-Bypass or configure a proxy in Settings.';
+    }
+    if (lower.contains('unsupported url')) {
+      return 'URL is not supported by yt-dlp or does not contain extractable media.';
+    }
+
+    text = text.split('\n').firstWhere(
+      (l) => l.trim().isNotEmpty && !l.trim().startsWith('WARNING:'),
+      orElse: () => text,
+    );
+    if (text.length > 180) {
+      return '${text.substring(0, 177)}...';
+    }
+    return text;
   }
 }

@@ -199,10 +199,8 @@ class YtDlpOptions {
     );
   }
 
-  /// Builds arguments used during URL/Playlist inspection (getFormats)
-  /// so signed URLs are negotiated under the same IP family, proxy, cookies, and UA as the download.
   List<String> buildSearchArgs() {
-    final args = <String>[];
+    final args = <String>['--ignore-errors'];
     if (restrictFilenames) {
       args.add('--restrict-filenames');
     }
@@ -246,7 +244,6 @@ class YtDlpOptions {
       args.add('--restrict-filenames');
     }
 
-    // Format selection & Seal Protocol Compatibility Sorting (-S proto,vcodec:h264,ext)
     if (formatId.isNotEmpty) {
       args.addAll(['-f', formatId]);
     }
@@ -256,8 +253,6 @@ class YtDlpOptions {
       args.addAll(['-S', formatSortString!.trim()]);
     }
 
-    // Downloader & multi-thread aria2c vs native --concurrent-fragments
-    // Note: aria2c is not compatible with live HLS/DASH manifests or --live-from-start
     if (useAria2c && !isLiveStream) {
       args.addAll([
         '--concurrent-fragments',
@@ -274,35 +269,41 @@ class YtDlpOptions {
       ]);
     }
 
-    // Live Stream & Scheduled Broadcast flags
     if (isLiveStream) {
-      // Prevent FFmpeg code 183 (AVERROR_INVALIDDATA) from corrupted .part files
-      // and transient live HLS stream socket drops
       args.add('--no-part');
-      if (!liveFromStart) {
+      if (liveFromStart) {
+        args.add('--live-from-start');
+      } else {
+        if (hlsUseMpegts) {
+          args.add('--hls-use-mpegts');
+        }
         args.addAll([
           '--downloader-args',
           'ffmpeg_i:-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
         ]);
       }
+    } else {
+      if (liveFromStart) {
+        args.add('--live-from-start');
+      }
+      if (hlsUseMpegts) {
+        args.add('--hls-use-mpegts');
+      }
     }
-    if (liveFromStart) {
-      args.add('--live-from-start');
-    }
-    if (hlsUseMpegts) {
-      args.add('--hls-use-mpegts');
-    }
+
     if (waitForVideoSeconds != null && waitForVideoSeconds! > 0) {
       args.addAll(['--wait-for-video', '$waitForVideoSeconds']);
     }
 
-    // Playlist flags
     if (yesPlaylist) {
-      args.add('--yes-playlist');
+      args.addAll(['--yes-playlist', '--ignore-errors']);
     } else if (playlistItems == null || playlistItems!.trim().isEmpty) {
       args.add('--no-playlist');
     }
     if (playlistItems != null && playlistItems!.trim().isNotEmpty) {
+      if (!args.contains('--ignore-errors')) {
+        args.add('--ignore-errors');
+      }
       args.addAll(['--playlist-items', playlistItems!.trim()]);
     }
 
