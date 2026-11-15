@@ -169,6 +169,11 @@ class TaskQueueService {
     if (task.status == DownloadStatus.paused ||
         task.status == DownloadStatus.failed) {
       _pausedTaskIds.remove(taskId);
+      if (!task.isLiveStream &&
+          !task.commandFlags.contains('-c') &&
+          !task.commandFlags.contains('--continue')) {
+        task.commandFlags = [...task.commandFlags, '--continue'];
+      }
       task.status = DownloadStatus.queued;
       task.errorLog = null;
       task.speed = 'Resuming...';
@@ -227,11 +232,6 @@ class TaskQueueService {
     _notify();
 
     final effectiveArgs = List<String>.from(toStart.commandFlags);
-    if (!toStart.isLiveStream &&
-        !effectiveArgs.contains('-c') &&
-        !effectiveArgs.contains('--continue')) {
-      effectiveArgs.add('--continue');
-    }
     if (settings.useAria2c &&
         !toStart.isLiveStream &&
         !effectiveArgs.contains('--downloader') &&

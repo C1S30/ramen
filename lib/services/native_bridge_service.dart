@@ -226,22 +226,6 @@ class NativeBridgeService {
     }
   }
 
-  /// Silently refreshes WebView cookies + User-Agent in the background (Android)
-  Future<bool> refreshSilentCookies([
-    String url = 'https://www.youtube.com',
-  ]) async {
-    if (Platform.isAndroid) {
-      try {
-        final res = await _engineChannel.invokeMethod<bool>(
-          'refreshSilentCookies',
-          {'url': url},
-        );
-        return res ?? false;
-      } catch (_) {}
-    }
-    return false;
-  }
-
   /// Saves Netscape cookies.txt content to app storage and returns its file path
   Future<String> saveUserCookies(String content) async {
     if (Platform.isAndroid) {
@@ -445,6 +429,29 @@ class NativeBridgeService {
     return await _getFormatsViaDesktopCli(target, extraArgs, effectiveSearchId);
   }
 
+  bool _isPlaylistTarget(String target) {
+    final lower = target.toLowerCase();
+    if (RegExp(r'^[a-z]+search\d*:').hasMatch(lower)) return true;
+    if (lower.contains('/playlist') ||
+        lower.contains('/sets/') ||
+        lower.contains('/album/') ||
+        lower.contains('/@')) {
+      return true;
+    }
+    if (lower.contains('list=') && !lower.contains('v=')) {
+      return true;
+    }
+    return false;
+  }
+
+  bool _isLiveTarget(String target) {
+    final lower = target.toLowerCase();
+    return lower.contains('/live/') ||
+        lower.contains('/live?') ||
+        lower.contains('twitch.tv/') ||
+        lower.contains('kick.com/');
+  }
+
   Future<MediaResource> _getFormatsViaDesktopCli(
     String target,
     List<String> extraArgs,
@@ -452,44 +459,21 @@ class NativeBridgeService {
   ) async {
     final configFile = await _getOrCreateConfigFile();
 
-    // Seal method: Try extracting full JSON metadata first
-    try {
-      final jsonArgs = [
-        '--config-locations',
-        configFile.path,
-        '--dump-single-json',
-        '--no-warnings',
-        '--flat-playlist',
-        '--ignore-errors',
-        ...extraArgs,
-        target,
-      ];
-      final jsonOut = await _runCancellableSearchProcess(jsonArgs, searchId);
-      if (jsonOut != null && jsonOut.trim().isNotEmpty) {
-        return MediaResource.parseOutput(jsonOut.trim(), target);
-      }
-    } catch (e) {
-      if (_cancelledSearchIds.remove(searchId) ||
-          e.toString().contains('Search cancelled')) {
-        throw Exception('Search cancelled');
-      }
-      // Fallback to table extraction below
-    }
+    final isPlaylist = _isPlaylistTarget(target);
+    final isLive = !isPlaylist && _isLiveTarget(target);
 
-    if (_cancelledSearchIds.remove(searchId)) {
-      throw Exception('Search cancelled');
-    }
-
-    final cliArgs = [
+    final jsonArgs = <String>[
       '--config-locations',
       configFile.path,
-      target,
-      '-F',
+      '--dump-single-json',
+      '--no-warnings',
+      if (isPlaylist) ...['--flat-playlist', '--ignore-errors'] else if (isLive) ...['--no-playlist', '--no-check-formats'] else '--no-playlist',
       ...extraArgs,
+      target,
     ];
 
-    final rawOut = await _runCancellableSearchProcess(
-      cliArgs,
+    final jsonOut = await _runCancellableSearchProcess(
+      jsonArgs,
       searchId,
       throwOnError: true,
     );
@@ -498,11 +482,11 @@ class NativeBridgeService {
       throw Exception('Search cancelled');
     }
 
-    if (rawOut == null || rawOut.trim().isEmpty) {
-      throw Exception('yt-dlp returned empty output for "$target"');
+    if (jsonOut == null || jsonOut.trim().isEmpty) {
+      throw Exception('yt-dlp returned empty JSON output for "$target"');
     }
 
-    return MediaResource.parseOutput(rawOut.trim(), target);
+    return MediaResource.parseOutput(jsonOut.trim(), target);
   }
 
   Future<String?> _runCancellableSearchProcess(

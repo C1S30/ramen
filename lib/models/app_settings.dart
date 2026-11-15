@@ -6,9 +6,7 @@ class AppSettings {
   int aria2Threads;
   int maxConcurrentDownloads;
   bool wifiOnly;
-  bool autoUpdateEngine;
   String ytDlpUpdateChannel; // 'nightly' or 'stable'
-  bool silentWebViewCookies;
   bool preferProtocolCompatibility;
   bool restrictFilenames;
   bool cropAudioArtwork;
@@ -18,7 +16,7 @@ class AppSettings {
   String defaultAudioFormat;
   String defaultVideoContainer;
 
-  // Advanced yt-dlp Options
+  // Optional yt-dlp Arguments (all disabled by default)
   String proxy;
   String rateLimit;
   String userAgent;
@@ -42,12 +40,10 @@ class AppSettings {
     this.aria2Threads = 4,
     this.maxConcurrentDownloads = 3,
     this.wifiOnly = false,
-    this.autoUpdateEngine = true,
     this.ytDlpUpdateChannel = 'nightly',
-    this.silentWebViewCookies = true,
     this.preferProtocolCompatibility = false,
     this.restrictFilenames = false,
-    this.cropAudioArtwork = true,
+    this.cropAudioArtwork = false,
     this.enableBackgroundProcessing = true,
     this.backgroundNotifications = true,
     this.activeTemplateId = 'best_video_mux',
@@ -56,16 +52,16 @@ class AppSettings {
     this.proxy = '',
     this.rateLimit = '',
     this.userAgent = '',
-    this.socketTimeout = 30,
-    this.forceIpv4 = true,
+    this.socketTimeout = 0,
+    this.forceIpv4 = false,
     this.forceIpv6 = false,
     this.embedSubtitles = false,
     this.writeAutoSubtitles = false,
     this.subLangs = 'en.*',
-    this.embedThumbnail = true,
-    this.embedMetadata = true,
-    this.embedChapters = true,
-    this.geoBypass = true,
+    this.embedThumbnail = false,
+    this.embedMetadata = false,
+    this.embedChapters = false,
+    this.geoBypass = false,
     this.cookiesFilePath = '',
     this.enableSponsorBlock = false,
     this.rawCustomArgs = '',
@@ -77,9 +73,7 @@ class AppSettings {
     int? aria2Threads,
     int? maxConcurrentDownloads,
     bool? wifiOnly,
-    bool? autoUpdateEngine,
     String? ytDlpUpdateChannel,
-    bool? silentWebViewCookies,
     bool? preferProtocolCompatibility,
     bool? restrictFilenames,
     bool? cropAudioArtwork,
@@ -112,9 +106,7 @@ class AppSettings {
       maxConcurrentDownloads:
           maxConcurrentDownloads ?? this.maxConcurrentDownloads,
       wifiOnly: wifiOnly ?? this.wifiOnly,
-      autoUpdateEngine: autoUpdateEngine ?? this.autoUpdateEngine,
       ytDlpUpdateChannel: ytDlpUpdateChannel ?? this.ytDlpUpdateChannel,
-      silentWebViewCookies: silentWebViewCookies ?? this.silentWebViewCookies,
       preferProtocolCompatibility:
           preferProtocolCompatibility ?? this.preferProtocolCompatibility,
       restrictFilenames: restrictFilenames ?? this.restrictFilenames,
@@ -152,9 +144,7 @@ class AppSettings {
         'aria2Threads': aria2Threads,
         'maxConcurrentDownloads': maxConcurrentDownloads,
         'wifiOnly': wifiOnly,
-        'autoUpdateEngine': autoUpdateEngine,
         'ytDlpUpdateChannel': ytDlpUpdateChannel,
-        'silentWebViewCookies': silentWebViewCookies,
         'preferProtocolCompatibility': preferProtocolCompatibility,
         'restrictFilenames': restrictFilenames,
         'cropAudioArtwork': cropAudioArtwork,
@@ -192,13 +182,11 @@ class AppSettings {
       maxConcurrentDownloads:
           (map['maxConcurrentDownloads'] as num?)?.toInt() ?? 3,
       wifiOnly: map['wifiOnly'] as bool? ?? false,
-      autoUpdateEngine: map['autoUpdateEngine'] as bool? ?? true,
       ytDlpUpdateChannel: map['ytDlpUpdateChannel']?.toString() ?? 'nightly',
-      silentWebViewCookies: map['silentWebViewCookies'] as bool? ?? true,
       preferProtocolCompatibility:
           map['preferProtocolCompatibility'] as bool? ?? false,
       restrictFilenames: map['restrictFilenames'] as bool? ?? false,
-      cropAudioArtwork: map['cropAudioArtwork'] as bool? ?? true,
+      cropAudioArtwork: map['cropAudioArtwork'] as bool? ?? false,
       enableBackgroundProcessing:
           map['enableBackgroundProcessing'] as bool? ?? true,
       backgroundNotifications:
@@ -210,16 +198,16 @@ class AppSettings {
       proxy: map['proxy']?.toString() ?? '',
       rateLimit: map['rateLimit']?.toString() ?? '',
       userAgent: map['userAgent']?.toString() ?? '',
-      socketTimeout: (map['socketTimeout'] as num?)?.toInt() ?? 30,
-      forceIpv4: map['forceIpv4'] as bool? ?? true,
+      socketTimeout: (map['socketTimeout'] as num?)?.toInt() ?? 0,
+      forceIpv4: map['forceIpv4'] as bool? ?? false,
       forceIpv6: map['forceIpv6'] as bool? ?? false,
       embedSubtitles: map['embedSubtitles'] as bool? ?? false,
       writeAutoSubtitles: map['writeAutoSubtitles'] as bool? ?? false,
       subLangs: map['subLangs']?.toString() ?? 'en.*',
-      embedThumbnail: map['embedThumbnail'] as bool? ?? true,
-      embedMetadata: map['embedMetadata'] as bool? ?? true,
-      embedChapters: map['embedChapters'] as bool? ?? true,
-      geoBypass: map['geoBypass'] as bool? ?? true,
+      embedThumbnail: map['embedThumbnail'] as bool? ?? false,
+      embedMetadata: map['embedMetadata'] as bool? ?? false,
+      embedChapters: map['embedChapters'] as bool? ?? false,
+      geoBypass: map['geoBypass'] as bool? ?? false,
       cookiesFilePath: map['cookiesFilePath']?.toString() ?? '',
       enableSponsorBlock: map['enableSponsorBlock'] as bool? ?? false,
       rawCustomArgs: map['rawCustomArgs']?.toString() ?? '',

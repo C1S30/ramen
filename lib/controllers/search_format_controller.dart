@@ -21,6 +21,11 @@ class SearchFormatController extends ChangeNotifier {
   SearchFormatController() {
     final settings = getIt<StorageService>().getSettings();
     _options = settings.toYtDlpOptions();
+    _taskCompletedSubscription = _taskQueue.onTaskCompleted.listen((_) {
+      if (_currentResource != null) {
+        clearPreview();
+      }
+    });
   }
 
   bool _isLoading = false;

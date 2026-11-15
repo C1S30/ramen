@@ -75,23 +75,6 @@ class SettingsController extends ChangeNotifier {
     _save();
   }
 
-  Future<void> refreshSilentCookies() async {
-    _isUpdating = true;
-    _updateMessage = 'Silently syncing WebView cookies & User-Agent...';
-    notifyListeners();
-    try {
-      final ok = await _nativeBridge.refreshSilentCookies();
-      _updateMessage = ok
-          ? 'Silent WebView cookies & User-Agent synced'
-          : 'Silent cookie sync completed';
-    } catch (e) {
-      _updateMessage = 'Cookie sync notice: $e';
-    } finally {
-      _isUpdating = false;
-      notifyListeners();
-    }
-  }
-
   Future<String> getCustomCookies() async {
     return await _nativeBridge.getUserCookies();
   }

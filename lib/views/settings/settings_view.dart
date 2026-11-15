@@ -24,7 +24,7 @@ class SettingsView extends StatelessWidget {
         title: Row(
           children: [
             Text(
-              'SYSTEM CONFIG',
+              'SETTINGS',
               style: AppStyles.monoHeadline.copyWith(
                 fontSize: 15,
                 letterSpacing: 2.5,
@@ -104,7 +104,10 @@ class SettingsView extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('CONCURRENT QUEUE WORKERS', style: AppStyles.monoSmall),
+                    Text(
+                      'CONCURRENT QUEUE WORKERS',
+                      style: AppStyles.monoSmall,
+                    ),
                     Text(
                       '${settings.maxConcurrentDownloads} TASKS',
                       style: AppStyles.monoAccent,
@@ -202,7 +205,10 @@ class SettingsView extends StatelessWidget {
                 const Divider(),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text('Wi-Fi Only Transfers', style: AppStyles.monoLabel),
+                  title: Text(
+                    'Wi-Fi Only Transfers',
+                    style: AppStyles.monoLabel,
+                  ),
                   subtitle: Text(
                     'Block downloads over cellular connections',
                     style: AppStyles.caption,
@@ -226,8 +232,8 @@ class SettingsView extends StatelessWidget {
                   ),
                   subtitle: Text(
                     settings.cookiesFilePath.isNotEmpty
-                        ? 'ACTIVE // Authenticated cookies loaded'
-                        : 'Import cookies.txt for Instagram, YouTube & X',
+                        ? 'ACTIVE // Cookies loaded'
+                        : 'Optional cookies.txt for authenticated downloads',
                     style: AppStyles.caption.copyWith(
                       color: settings.cookiesFilePath.isNotEmpty
                           ? AppColors.textPrimary
@@ -242,44 +248,11 @@ class SettingsView extends StatelessWidget {
                   onTap: () => _showEditCookiesDialog(context, settingsCtrl),
                 ),
                 const Divider(),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    'Silent WebView Session Sync',
-                    style: AppStyles.monoLabel,
-                  ),
-                  subtitle: Text(
-                    'Harvests session cookies & User-Agent in background',
-                    style: AppStyles.caption,
-                  ),
-                  trailing: OutlinedButton(
-                    onPressed: settingsCtrl.isUpdating
-                        ? null
-                        : settingsCtrl.refreshSilentCookies,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      'SYNC',
-                      style: AppStyles.monoSmall.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ),
-                ),
-                const Divider(),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text('Force IPv4 (-4)', style: AppStyles.monoLabel),
                   subtitle: Text(
-                    'Prevents IPv6/IPv4 CDN signature mismatches',
+                    'Optional: force IPv4 connections',
                     style: AppStyles.caption,
                   ),
                   value: settings.forceIpv4,
@@ -290,12 +263,25 @@ class SettingsView extends StatelessWidget {
                 const Divider(),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
+                  title: Text('Geo Bypass (--geo-bypass)', style: AppStyles.monoLabel),
+                  subtitle: Text(
+                    'Optional: bypass geographic restrictions',
+                    style: AppStyles.caption,
+                  ),
+                  value: settings.geoBypass,
+                  onChanged: (val) => settingsCtrl.updateSettings(
+                    settings.copyWith(geoBypass: val),
+                  ),
+                ),
+                const Divider(),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
                   title: Text(
                     'Protocol Compatibility (-S proto)',
                     style: AppStyles.monoLabel,
                   ),
                   subtitle: Text(
-                    'Prefer direct HTTPS streams over fragmented DASH',
+                    'Optional: prefer direct HTTPS streams',
                     style: AppStyles.caption,
                   ),
                   value: settings.preferProtocolCompatibility,
@@ -313,10 +299,7 @@ class SettingsView extends StatelessWidget {
               children: [
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    'Background Service',
-                    style: AppStyles.monoLabel,
-                  ),
+                  title: Text('Background Service', style: AppStyles.monoLabel),
                   subtitle: Text(
                     'Keep extractions running when app is minimized',
                     style: AppStyles.caption,

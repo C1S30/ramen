@@ -40,52 +40,10 @@ class RamenBackgroundService : Service() {
             val speed: String
         )
 
-        private val activeSearches = ConcurrentHashMap<String, String>()
         private val activeDownloads = ConcurrentHashMap<String, DownloadProgressInfo>()
-        private val activeUpdates = ConcurrentHashMap<String, String>()
         private var alertNotificationCounter = 4200
 
-        fun hasActiveWork(): Boolean {
-            return activeSearches.isNotEmpty() ||
-                activeDownloads.isNotEmpty() ||
-                activeUpdates.isNotEmpty()
-        }
-
-        fun onSearchStarted(context: Context, searchId: String, query: String) {
-            activeSearches[searchId] = query
-            syncService(context)
-        }
-
-        fun onSearchFinished(
-            context: Context,
-            searchId: String,
-            succeeded: Boolean,
-            query: String,
-            errorMsg: String? = null
-        ) {
-            activeSearches.remove(searchId)
-            if (enableBackgroundNotifications) {
-                if (succeeded) {
-                    postCompletionAlert(
-                        context,
-                        title = "Format Inspection Ready",
-                        body = "Resolved formats for: $query",
-                        isError = false
-                    )
-                } else if (!errorMsg.isNullOrBlank() &&
-                    !errorMsg.contains("cancelled", ignoreCase = true) &&
-                    !errorMsg.contains("canceled", ignoreCase = true)
-                ) {
-                    postCompletionAlert(
-                        context,
-                        title = "Search Failed",
-                        body = errorMsg,
-                        isError = true
-                    )
-                }
-            }
-            syncService(context)
-        }
+        fun hasActiveDownloads(): Boolean = activeDownloads.isNotEmpty()
 
         fun onDownloadStarted(context: Context, taskId: String, title: String) {
             activeDownloads[taskId] = DownloadProgressInfo(
@@ -137,36 +95,13 @@ class RamenBackgroundService : Service() {
             syncService(context)
         }
 
-        fun onUpdateStarted(context: Context, updateId: String, label: String) {
-            activeUpdates[updateId] = label
-            syncService(context)
-        }
-
-        fun onUpdateFinished(
-            context: Context,
-            updateId: String,
-            succeeded: Boolean,
-            message: String
-        ) {
-            activeUpdates.remove(updateId)
-            if (enableBackgroundNotifications) {
-                postCompletionAlert(
-                    context,
-                    title = if (succeeded) "Engine Update Complete" else "Engine Update Failed",
-                    body = message,
-                    isError = !succeeded
-                )
-            }
-            syncService(context)
-        }
-
         fun syncService(context: Context) {
             try {
                 val appCtx = context.applicationContext
                 val nm = appCtx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 ensureChannels(nm)
 
-                if (hasActiveWork()) {
+                if (hasActiveDownloads()) {
                     if (enableBackgroundProcessing) {
                         val intent = Intent(appCtx, RamenBackgroundService::class.java).apply {
                             action = ACTION_SYNC
@@ -248,55 +183,23 @@ class RamenBackgroundService : Service() {
             }
             val pendingIntent = PendingIntent.getActivity(context, 0, launchIntent, pendingFlags)
 
-            val searchCount = activeSearches.size
             val downloadCount = activeDownloads.size
-            val updateCount = activeUpdates.size
 
-            val title = when {
-                updateCount > 0 ->
-                    "Ramen • Updating Engine"
-                searchCount > 0 && downloadCount > 0 ->
-                    "Ramen • $downloadCount Download(s) & $searchCount Search Active"
-                downloadCount > 0 ->
-                    if (downloadCount == 1) {
-                        activeDownloads.values.first().title
-                    } else {
-                        "Ramen • Downloading $downloadCount Streams"
-                    }
-                searchCount > 0 ->
-                    "Ramen • Searching Media Stream..."
-                else ->
-                    "Ramen Background Engine"
-            }
-
-            val subtitle = when {
-                updateCount > 0 -> {
-                    activeUpdates.values.firstOrNull() ?: "Updating yt-dlp binary..."
-                }
-                downloadCount > 0 -> {
-                    val avgProgress = activeDownloads.values
-                        .map { it.progress.coerceIn(0.0, 100.0) }
-                        .average()
-                    val firstSpeed = activeDownloads.values.firstOrNull { it.speed.isNotBlank() }?.speed ?: ""
-                    val progressText = if (avgProgress > 0.0) "${String.format("%.1f", avgProgress)}%" else "Live / Active"
-                    val extraSearch = if (searchCount > 0) " • Inspecting URL" else ""
-                    if (firstSpeed.isNotBlank()) "$progressText • $firstSpeed$extraSearch" else "$progressText$extraSearch"
-                }
-                searchCount > 0 -> {
-                    val firstQuery = activeSearches.values.firstOrNull() ?: ""
-                    "Inspecting formats: $firstQuery"
-                }
-                else -> "Processing in background"
-            }
-
-            val avgProgressInt = if (downloadCount > 0 && updateCount == 0) {
-                activeDownloads.values.map { it.progress.coerceIn(0.0, 100.0) }.average().toInt()
+            val title = if (downloadCount == 1) {
+                activeDownloads.values.first().title
             } else {
-                0
+                "Ramen • Downloading $downloadCount files"
             }
-            val indeterminate = updateCount > 0 ||
-                (searchCount > 0 && downloadCount == 0) ||
-                (downloadCount > 0 && avgProgressInt <= 0)
+
+            val avgProgress = activeDownloads.values
+                .map { it.progress.coerceIn(0.0, 100.0) }
+                .average()
+            val firstSpeed = activeDownloads.values.firstOrNull { it.speed.isNotBlank() }?.speed ?: ""
+            val progressText = if (avgProgress > 0.0) "${String.format("%.1f", avgProgress)}%" else "Downloading..."
+            val subtitle = if (firstSpeed.isNotBlank()) "$progressText • $firstSpeed" else progressText
+
+            val avgProgressInt = avgProgress.toInt()
+            val indeterminate = avgProgressInt <= 0
 
             return NotificationCompat.Builder(context, PROGRESS_CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_sys_download)
@@ -314,18 +217,18 @@ class RamenBackgroundService : Service() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val progressChannel = NotificationChannel(
                     PROGRESS_CHANNEL_ID,
-                    "Ramen Active Operations",
+                    "Download Progress",
                     NotificationManager.IMPORTANCE_LOW
                 ).apply {
-                    description = "Live progress for searches, downloads, and engine updates"
+                    description = "Active download progress"
                     setShowBadge(false)
                 }
                 val alertChannel = NotificationChannel(
                     ALERT_CHANNEL_ID,
-                    "Ramen Task Notifications",
+                    "Download Status",
                     NotificationManager.IMPORTANCE_DEFAULT
                 ).apply {
-                    description = "Alerts when searches, downloads, or engine updates finish"
+                    description = "Notifications when downloads succeed or fail"
                 }
                 nm.createNotificationChannel(progressChannel)
                 nm.createNotificationChannel(alertChannel)
@@ -346,7 +249,7 @@ class RamenBackgroundService : Service() {
                 return START_NOT_STICKY
             }
             else -> {
-                if (!enableBackgroundProcessing || !hasActiveWork()) {
+                if (!enableBackgroundProcessing || !hasActiveDownloads()) {
                     stopForegroundServiceCleanly()
                     return START_NOT_STICKY
                 }

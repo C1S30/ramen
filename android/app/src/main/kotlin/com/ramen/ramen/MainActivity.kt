@@ -1,7 +1,6 @@
 package com.ramen.ramen
 
 import android.content.Intent
-import android.database.sqlite.SQLiteDatabase
 import android.media.MediaCodecList
 import android.media.MediaScannerConnection
 import android.net.Uri
@@ -9,10 +8,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.webkit.CookieManager
-import android.webkit.WebResourceRequest
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.annotation.NonNull
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -52,7 +47,6 @@ class MainActivity : FlutterActivity() {
 
     private val activeTasks = ConcurrentHashMap<String, String>() // taskId -> status
     private val cancelledTasks = ConcurrentHashMap.newKeySet<String>()
-    private val resolvedDirectMediaUrls = ConcurrentHashMap<String, String>() // originalUrl -> direct CDN URL
     private var sharedUrl: String? = null
 
     @Volatile
@@ -61,9 +55,6 @@ class MainActivity : FlutterActivity() {
 
     @Volatile
     private var isJsRuntimesSupported: Boolean? = null
-
-    @Volatile
-    private var silentWebViewUserAgent: String = ""
 
     @Volatile
     private var isAv1HwAccelerated: Boolean? = null
@@ -129,116 +120,9 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun getSilentCookiesFile(): File = File(applicationContext.filesDir, "cookies.txt")
     private fun getUserCookiesFile(): File = File(applicationContext.filesDir, "user_cookies.txt")
-    private fun getUserAgentFile(): File = File(applicationContext.filesDir, "webview_ua.txt")
-    private fun getAutoUpdatedMarkerFile(): File = File(applicationContext.filesDir, ".ytdlp_auto_updated_v1")
     private fun getTempDownloadDir(): File = File(applicationContext.cacheDir, "ytdlp_temp").apply {
         if (!exists()) mkdirs()
-    }
-
-    /**
-     * Normalizes social media URLs (especially Instagram /share/ links and tracking parameters
-     * like ?igsh=... that trigger empty media responses or redirect loops).
-     */
-    private fun normalizeMediaUrl(rawUrl: String): String {
-        val trimmed = rawUrl.trim()
-        if (!trimmed.contains("instagram.com", ignoreCase = true) &&
-            !trimmed.contains("instagr.am", ignoreCase = true)
-        ) {
-            return trimmed
-        }
-
-        var workingUrl = trimmed
-        // 1. Resolve Instagram /share/ redirect links to their canonical /reel/ or /p/ URL
-        if (workingUrl.contains("/share/", ignoreCase = true) ||
-            workingUrl.contains("instagr.am/", ignoreCase = true)
-        ) {
-            try {
-                val conn = (URL(workingUrl).openConnection() as HttpURLConnection).apply {
-                    instanceFollowRedirects = false
-                    connectTimeout = 5000
-                    readTimeout = 5000
-                    setRequestProperty(
-                        "User-Agent",
-                        "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
-                    )
-                }
-                val code = conn.responseCode
-                if (code in 300..399) {
-                    val location = conn.getHeaderField("Location")
-                    if (!location.isNullOrBlank()) {
-                        workingUrl = if (location.startsWith("http")) {
-                            location
-                        } else {
-                            "https://www.instagram.com$location"
-                        }
-                    }
-                }
-                conn.disconnect()
-            } catch (e: Exception) {
-                android.util.Log.w(TAG, "Instagram share redirect resolution notice: ${e.message}")
-            }
-        }
-
-        // 2. Normalize /reels/<id> -> /reel/<id> and strip tracking query params (?igsh=..., ?utm_source=...)
-        try {
-            val uri = Uri.parse(workingUrl)
-            val path = (uri.path ?: "").replace(Regex("^/reels/"), "/reel/")
-            val match = Regex("""/(reel|p|tv)/([A-Za-z0-9_-]+)""").find(path)
-            if (match != null) {
-                val type = match.groupValues[1]
-                val shortcode = match.groupValues[2]
-                return "https://www.instagram.com/$type/$shortcode/"
-            }
-        } catch (_: Exception) {}
-
-        return workingUrl
-    }
-
-    private fun extractInstagramShortcode(url: String): String? {
-        val match = Regex("""instagram\.com/(?:reel|reels|p|tv)/([A-Za-z0-9_-]+)""", RegexOption.IGNORE_CASE)
-            .find(url)
-        return match?.groupValues?.getOrNull(1)
-    }
-
-    /**
-     * Checks whether the available cookies file contains an authenticated session cookie
-     * for the target URL's domain. Passing anonymous/empty cookies or overriding User-Agent
-     * on Instagram without a 'sessionid' cookie breaks yt-dlp's mobile API extractor!
-     */
-    private fun getEffectiveCookiesFileForUrl(
-        targetUrl: String,
-        allowUnauthenticatedCookies: Boolean = false
-    ): File? {
-        val userFile = getUserCookiesFile()
-        if (userFile.exists() && userFile.length() > 32) {
-            return userFile
-        }
-
-        val silentFile = getSilentCookiesFile()
-        if (!silentFile.exists() || silentFile.length() <= NETSCAPE_COOKIE_HEADER.length) {
-            return null
-        }
-
-        val content = try {
-            silentFile.readText()
-        } catch (_: Exception) {
-            return null
-        }
-
-        val lowerUrl = targetUrl.lowercase()
-        return when {
-            lowerUrl.contains("instagram.com") || lowerUrl.contains("instagr.am") -> {
-                // Only pass silent cookies to Instagram if an authenticated 'sessionid' cookie exists
-                // (or during explicit fallback when requested)
-                if (content.contains("\tsessionid\t") || allowUnauthenticatedCookies) silentFile else null
-            }
-            lowerUrl.contains("youtube.com") || lowerUrl.contains("youtu.be") -> {
-                if (content.contains("youtube.com")) silentFile else null
-            }
-            else -> if (allowUnauthenticatedCookies) silentFile else null
-        }
     }
 
     /**
@@ -260,471 +144,6 @@ class MainActivity : FlutterActivity() {
         }
         isAv1HwAccelerated = supported
         return supported
-    }
-
-    /**
-     * Silently initializes or refreshes cookies + matching User-Agent using a headless,
-     * invisible Android WebView and extracts Chromium's SQLite cookie database into Netscape format.
-     */
-    private fun harvestCookiesSilently(targetUrl: String, timeoutMs: Long = 6500L): Boolean {
-        val loadUrl = try {
-            val shortcode = extractInstagramShortcode(targetUrl)
-            if (shortcode != null) {
-                "https://www.instagram.com/p/$shortcode/embed/captioned/"
-            } else {
-                val uri = Uri.parse(targetUrl)
-                if (uri.scheme != null && uri.host != null) {
-                    targetUrl
-                } else {
-                    "https://www.youtube.com/"
-                }
-            }
-        } catch (_: Exception) {
-            "https://www.youtube.com/"
-        }
-
-        val latch = CountDownLatch(1)
-        var capturedUa = silentWebViewUserAgent
-
-        mainHandler.post {
-            var webView: WebView? = null
-            try {
-                val cookieManager = CookieManager.getInstance()
-                cookieManager.setAcceptCookie(true)
-
-                webView = WebView(applicationContext).apply {
-                    visibility = android.view.View.GONE
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    settings.databaseEnabled = true
-                    settings.mediaPlaybackRequiresUserGesture = true
-                    capturedUa = settings.userAgentString ?: ""
-                    if (capturedUa.isNotBlank()) {
-                        silentWebViewUserAgent = capturedUa
-                        try {
-                            getUserAgentFile().writeText(capturedUa)
-                        } catch (_: Exception) {}
-                    }
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(view: WebView?, url: String?) {
-                            try {
-                                CookieManager.getInstance().flush()
-                            } catch (_: Exception) {}
-                            latch.countDown()
-                        }
-
-                        override fun shouldOverrideUrlLoading(
-                            view: WebView?,
-                            request: WebResourceRequest?
-                        ): Boolean = false
-                    }
-                }
-                webView.loadUrl(loadUrl)
-            } catch (e: Exception) {
-                android.util.Log.w(TAG, "Silent WebView init notice: ${e.message}")
-                latch.countDown()
-            } finally {
-                mainHandler.postDelayed({
-                    try {
-                        CookieManager.getInstance().flush()
-                    } catch (_: Exception) {}
-                    try {
-                        webView?.stopLoading()
-                        webView?.destroy()
-                    } catch (_: Exception) {}
-                    latch.countDown()
-                }, timeoutMs)
-            }
-        }
-
-        try {
-            latch.await(timeoutMs + 500L, TimeUnit.MILLISECONDS)
-        } catch (_: Exception) {}
-
-        return exportWebViewDatabaseToCookiesFile(loadUrl, targetUrl)
-    }
-
-    /**
-     * Silent Instagram Embed & DOM Extractor Fallback:
-     * When yt-dlp's anonymous Instagram GraphQL API fails with "Instagram sent an empty media response",
-     * this loads the Instagram embed/post page inside an invisible off-screen WebView, executes JS
-     * to extract the direct CDN .mp4 stream URL + metadata, and returns a yt-dlp-compatible JSON object.
-     */
-    private fun extractInstagramViaSilentWebView(targetUrl: String, timeoutMs: Long = 9000L): String? {
-        val shortcode = extractInstagramShortcode(targetUrl) ?: return null
-        val embedUrl = "https://www.instagram.com/p/$shortcode/embed/captioned/"
-
-        // 1. Fast HTTP fetch of the public /embed/captioned/ HTML first (often contains video_url in JSON without needing full JS wait)
-        try {
-            val conn = (URL(embedUrl).openConnection() as HttpURLConnection).apply {
-                connectTimeout = 6000
-                readTimeout = 6000
-                setRequestProperty(
-                    "User-Agent",
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-                )
-                setRequestProperty("Accept-Language", "en-US,en;q=0.9")
-            }
-            if (conn.responseCode == 200) {
-                val html = conn.inputStream.bufferedReader().use { it.readText() }
-                val parsedJson = parseInstagramEmbedHtml(html, shortcode, targetUrl)
-                if (parsedJson != null) {
-                    conn.disconnect()
-                    return parsedJson
-                }
-            }
-            conn.disconnect()
-        } catch (e: Exception) {
-            android.util.Log.w(TAG, "Fast Instagram embed HTTP fetch notice: ${e.message}")
-        }
-
-        // 2. Full Silent Headless WebView DOM + Script extraction
-        val latch = CountDownLatch(1)
-        var extractedJson: String? = null
-
-        mainHandler.post {
-            var webView: WebView? = null
-            var cleanedUp = false
-
-            fun cleanup() {
-                if (cleanedUp) return
-                cleanedUp = true
-                try {
-                    CookieManager.getInstance().flush()
-                } catch (_: Exception) {}
-                try {
-                    webView?.stopLoading()
-                    webView?.destroy()
-                } catch (_: Exception) {}
-                latch.countDown()
-            }
-
-            try {
-                webView = WebView(applicationContext).apply {
-                    visibility = android.view.View.GONE
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    settings.databaseEnabled = true
-                    settings.mediaPlaybackRequiresUserGesture = true
-                    settings.userAgentString =
-                        "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
-
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(view: WebView?, url: String?) {
-                            // Give embedded scripts 1.2s to hydrate the video player / JSON data
-                            mainHandler.postDelayed({
-                                if (cleanedUp || view == null) return@postDelayed
-                                val js = """
-                                    (function() {
-                                        var v = document.querySelector('video');
-                                        var videoSrc = v ? (v.src || v.currentSrc || '') : '';
-                                        var img = document.querySelector('.EmbeddedMediaImage') || document.querySelector('img');
-                                        var thumbSrc = img ? (img.src || '') : '';
-                                        var userEl = document.querySelector('.UsernameText') || document.querySelector('.Header .Username');
-                                        var uploader = userEl ? userEl.innerText.trim() : 'Instagram';
-                                        var capEl = document.querySelector('.Caption');
-                                        var caption = capEl ? capEl.innerText.trim() : '';
-                                        var html = document.documentElement.innerHTML;
-                                        return JSON.stringify({
-                                            videoSrc: videoSrc,
-                                            thumbSrc: thumbSrc,
-                                            uploader: uploader,
-                                            caption: caption,
-                                            html: html
-                                        });
-                                    })();
-                                """.trimIndent()
-
-                                view.evaluateJavascript(js) { rawResult ->
-                                    try {
-                                        if (!rawResult.isNullOrBlank() && rawResult != "null") {
-                                            val unescaped = org.json.JSONTokener(rawResult).nextValue().toString()
-                                            val obj = JSONObject(unescaped)
-                                            var videoUrl = obj.optString("videoSrc", "")
-                                            val thumbUrl = obj.optString("thumbSrc", "")
-                                            val uploader = obj.optString("uploader", "Instagram")
-                                            val caption = obj.optString("caption", "")
-                                            val html = obj.optString("html", "")
-
-                                            if (videoUrl.isBlank() && html.isNotBlank()) {
-                                                val fromHtml = parseInstagramEmbedHtml(html, shortcode, targetUrl)
-                                                if (fromHtml != null) {
-                                                    extractedJson = fromHtml
-                                                    cleanup()
-                                                    return@evaluateJavascript
-                                                }
-                                            }
-
-                                            if (videoUrl.isNotBlank() && videoUrl.startsWith("http")) {
-                                                resolvedDirectMediaUrls[targetUrl] = videoUrl
-                                                extractedJson = buildSyntheticInstagramYtDlpJson(
-                                                    shortcode = shortcode,
-                                                    webpageUrl = targetUrl,
-                                                    videoUrl = videoUrl,
-                                                    thumbnailUrl = thumbUrl,
-                                                    uploader = uploader,
-                                                    caption = caption
-                                                )
-                                            }
-                                        }
-                                    } catch (e: Exception) {
-                                        android.util.Log.w(TAG, "Silent WebView JS parse notice: ${e.message}")
-                                    } finally {
-                                        cleanup()
-                                    }
-                                }
-                            }, 1200L)
-                        }
-                    }
-                }
-                webView.loadUrl(embedUrl)
-            } catch (e: Exception) {
-                cleanup()
-            }
-
-            mainHandler.postDelayed({ cleanup() }, timeoutMs)
-        }
-
-        try {
-            latch.await(timeoutMs + 1000L, TimeUnit.MILLISECONDS)
-        } catch (_: Exception) {}
-
-        return extractedJson
-    }
-
-    private fun parseInstagramEmbedHtml(html: String, shortcode: String, webpageUrl: String): String? {
-        // Look for escaped or unescaped video_url in Instagram's embed script payload
-        val patterns = listOf(
-            Regex(""""video_url"\s*:\s*"([^"]+)""""),
-            Regex("""\\"video_url\\"\s*:\s*\\"([^\\"]+)\\""""),
-            Regex(""""contentUrl"\s*:\s*"([^"]+\.mp4[^"]*)""""),
-            Regex("""<video[^>]+src="([^"]+)"""")
-        )
-
-        var rawVideoUrl: String? = null
-        for (regex in patterns) {
-            val match = regex.find(html)
-            if (match != null) {
-                rawVideoUrl = match.groupValues[1]
-                break
-            }
-        }
-
-        if (rawVideoUrl.isNullOrBlank()) return null
-
-        val cleanVideoUrl = rawVideoUrl
-            .replace("\\\\/", "/")
-            .replace("\\/", "/")
-            .replace("\\u0026", "&")
-            .replace("\\\\u0026", "&")
-            .replace("&amp;", "&")
-
-        if (!cleanVideoUrl.startsWith("http")) return null
-
-        val thumbMatch = Regex("""class="EmbeddedMediaImage"[^>]+src="([^"]+)"""").find(html)
-            ?: Regex(""""display_url"\s*:\s*"([^"]+)"""").find(html)
-            ?: Regex("""\\"display_url\\"\s*:\s*\\"([^\\"]+)\\"""").find(html)
-        val cleanThumbUrl = thumbMatch?.groupValues?.getOrNull(1)
-            ?.replace("\\\\/", "/")
-            ?.replace("\\/", "/")
-            ?.replace("\\u0026", "&")
-            ?.replace("&amp;", "&")
-
-        val userMatch = Regex(""""username"\s*:\s*"([^"]+)"""").find(html)
-            ?: Regex("""\\"username\\"\s*:\s*\\"([^\\"]+)\\"""").find(html)
-        val uploader = userMatch?.groupValues?.getOrNull(1) ?: "Instagram"
-
-        resolvedDirectMediaUrls[webpageUrl] = cleanVideoUrl
-        return buildSyntheticInstagramYtDlpJson(
-            shortcode = shortcode,
-            webpageUrl = webpageUrl,
-            videoUrl = cleanVideoUrl,
-            thumbnailUrl = cleanThumbUrl,
-            uploader = uploader,
-            caption = "Instagram Reel $shortcode"
-        )
-    }
-
-    private fun buildSyntheticInstagramYtDlpJson(
-        shortcode: String,
-        webpageUrl: String,
-        videoUrl: String,
-        thumbnailUrl: String?,
-        uploader: String?,
-        caption: String?
-    ): String {
-        val cleanTitle = caption?.lines()?.firstOrNull { it.isNotBlank() }?.take(90)
-            ?.takeIf { it.isNotBlank() }
-            ?: "Instagram Video ($shortcode)"
-
-        val formatObj = JSONObject().apply {
-            put("format_id", "ig_direct_mp4")
-            put("url", videoUrl)
-            put("ext", "mp4")
-            put("vcodec", "h264")
-            put("acodec", "aac")
-            put("protocol", "https")
-            put("format_note", "Direct CDN Stream")
-        }
-
-        val root = JSONObject().apply {
-            put("id", shortcode)
-            put("title", cleanTitle)
-            put("uploader", uploader?.takeIf { it.isNotBlank() } ?: "Instagram")
-            if (!thumbnailUrl.isNullOrBlank()) {
-                put("thumbnail", thumbnailUrl)
-            }
-            put("webpage_url", webpageUrl)
-            put("extractor", "Instagram")
-            put("extractor_key", "Instagram")
-            put("ext", "mp4")
-            put("formats", JSONArray().put(formatObj))
-        }
-        return root.toString()
-    }
-
-    /**
-     * Reads Android's app_webview/Default/Cookies SQLite database (Seal method) and
-     * CookieManager fallback to write a Netscape-compliant cookies.txt file.
-     */
-    @Synchronized
-    private fun exportWebViewDatabaseToCookiesFile(vararg urls: String): Boolean {
-        val sb = StringBuilder(NETSCAPE_COOKIE_HEADER)
-        var count = 0
-
-        // 1. Primary Seal method: Read directly from app_webview/Default/Cookies SQLite DB
-        try {
-            CookieManager.getInstance().flush()
-            val dbFile = applicationContext.dataDir.resolve("app_webview/Default/Cookies")
-            if (dbFile.exists()) {
-                SQLiteDatabase.openDatabase(
-                    dbFile.absolutePath,
-                    null,
-                    SQLiteDatabase.OPEN_READONLY
-                ).use { db ->
-                    val projection = arrayOf(
-                        "host_key",
-                        "expires_utc",
-                        "path",
-                        "name",
-                        "value",
-                        "is_secure"
-                    )
-                    db.query("cookies", projection, null, null, null, null, null).use { cursor ->
-                        while (cursor.moveToNext()) {
-                            val hostKey = cursor.getString(0) ?: continue
-                            val expiryUtc = cursor.getLong(1)
-                            val path = cursor.getString(2) ?: "/"
-                            val name = cursor.getString(3) ?: continue
-                            val value = cursor.getString(4) ?: ""
-                            val isSecure = cursor.getLong(5) == 1L
-
-                            if (name.isBlank() || value.isBlank()) continue
-                            val domain = if (!hostKey.startsWith(".")) ".$hostKey" else hostKey
-                            val unixExpiry = if (expiryUtc > 11644473600000000L) {
-                                (expiryUtc / 1000000L) - 11644473600L
-                            } else if (expiryUtc > 0L) {
-                                expiryUtc
-                            } else {
-                                (System.currentTimeMillis() / 1000L) + 86400L * 30L
-                            }
-                            val includeSubdomains = if (domain.startsWith(".")) "TRUE" else "FALSE"
-                            val secureFlag = if (isSecure) "TRUE" else "FALSE"
-                            sb.append("$domain\t$includeSubdomains\t$path\t$secureFlag\t$unixExpiry\t$name\t$value\n")
-                            count++
-                        }
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            android.util.Log.w(TAG, "WebView SQLite cookie export fallback: ${e.message}")
-        }
-
-        // 2. Supplement with CookieManager.getInstance().getCookie(url) for session cookies
-        try {
-            val cookieManager = CookieManager.getInstance()
-            val checkUrls = (urls.toList() + listOf(
-                "https://www.youtube.com",
-                "https://m.youtube.com",
-                "https://www.instagram.com"
-            )).distinct()
-            for (u in checkUrls) {
-                if (u.isBlank()) continue
-                val rawCookie = cookieManager.getCookie(u) ?: continue
-                val host = try {
-                    Uri.parse(u).host ?: "youtube.com"
-                } catch (_: Exception) {
-                    "youtube.com"
-                }
-                val cleanHost = host.removePrefix("www.").removePrefix("m.")
-                val domain = if (cleanHost.startsWith(".")) cleanHost else ".$cleanHost"
-                val expiry = (System.currentTimeMillis() / 1000L) + 86400L * 30L
-                val pairs = rawCookie.split(";")
-                for (pair in pairs) {
-                    val trimmed = pair.trim()
-                    if (!trimmed.contains("=")) continue
-                    val name = trimmed.substringBefore("=").trim()
-                    val value = trimmed.substringAfter("=").trim()
-                    if (name.isNotEmpty() && value.isNotEmpty()) {
-                        sb.append("$domain\tTRUE\t/\tTRUE\t$expiry\t$name\t$value\n")
-                        count++
-                    }
-                }
-            }
-        } catch (_: Exception) {}
-
-        if (count > 0) {
-            try {
-                getSilentCookiesFile().writeText(sb.toString())
-                return true
-            } catch (e: Exception) {
-                android.util.Log.w(TAG, "Failed writing silent cookies.txt: ${e.message}")
-            }
-        }
-        return false
-    }
-
-    /**
-     * Attaches --cookies and matching --add-header User-Agent:<ua> to a YoutubeDLRequest
-     * ONLY when valid cookies exist for the target domain (or during an explicit 403/auth retry).
-     * Never overrides yt-dlp's internal Instagram mobile API User-Agent unless authenticated
-     * Instagram cookies ('sessionid') are present!
-     */
-    private fun applySilentCookiesAndUserAgent(
-        request: YoutubeDLRequest,
-        targetUrl: String,
-        existingArgs: List<String>,
-        isRetryFallback: Boolean = false
-    ) {
-        val isInstagram = targetUrl.contains("instagram.com", ignoreCase = true) ||
-            targetUrl.contains("instagr.am", ignoreCase = true)
-        val hasExplicitCookies = existingArgs.contains("--cookies") || existingArgs.contains("--cookies-from-browser")
-        val cookiesFile = getEffectiveCookiesFileForUrl(targetUrl, allowUnauthenticatedCookies = isRetryFallback && !isInstagram)
-
-        if (!hasExplicitCookies && cookiesFile != null) {
-            request.addOption("--cookies", cookiesFile.absolutePath)
-        }
-
-        // Only attach custom WebView User-Agent if cookies are being used for this domain
-        // (or on non-Instagram retry fallback), so we don't clobber yt-dlp's Instagram mobile API UA.
-        val shouldAttachWebViewUa = (!isInstagram && (cookiesFile != null || isRetryFallback)) ||
-            (isInstagram && cookiesFile != null)
-
-        val hasExplicitUa = existingArgs.contains("--user-agent") ||
-            existingArgs.any { it.startsWith("User-Agent:", ignoreCase = true) }
-        if (shouldAttachWebViewUa && !hasExplicitUa) {
-            val ua = silentWebViewUserAgent.ifBlank {
-                try {
-                    val f = getUserAgentFile()
-                    if (f.exists()) f.readText().trim() else ""
-                } catch (_: Exception) {
-                    ""
-                }
-            }
-            if (ua.isNotBlank()) {
-                request.addOption("--add-header", "User-Agent:$ua")
-            }
-        }
     }
 
     /**
@@ -775,59 +194,6 @@ class MainActivity : FlutterActivity() {
             } catch (e: Exception) {
                 android.util.Log.w(TAG, "Node JS runtime setup warning: ${e.message}")
             }
-
-            // 5. Auto-update bundled yt-dlp to latest NIGHTLY in background on first launch
-            // so Instagram/YouTube extractors are never stuck on the old bundled binary.
-            try {
-                val uaFile = getUserAgentFile()
-                if (uaFile.exists()) {
-                    silentWebViewUserAgent = uaFile.readText().trim()
-                }
-                exportWebViewDatabaseToCookiesFile("https://www.youtube.com", "https://www.instagram.com")
-                executor.execute {
-                    try {
-                        if (!getAutoUpdatedMarkerFile().exists()) {
-                            val autoUpdateId = "auto_update_${System.currentTimeMillis()}"
-                            RamenBackgroundService.onUpdateStarted(
-                                applicationContext,
-                                autoUpdateId,
-                                "Auto-updating yt-dlp (NIGHTLY)..."
-                            )
-                            try {
-                                YoutubeDL.getInstance().updateYoutubeDL(
-                                    applicationContext,
-                                    YoutubeDL.UpdateChannel.NIGHTLY
-                                )
-                                isJsRuntimesSupported = null
-                                getOrCreateConfigFile()
-                                getAutoUpdatedMarkerFile().writeText(System.currentTimeMillis().toString())
-                                val ver = YoutubeDL.getInstance().version(applicationContext) ?: "NIGHTLY"
-                                RamenBackgroundService.onUpdateFinished(
-                                    applicationContext,
-                                    autoUpdateId,
-                                    true,
-                                    "yt-dlp updated to $ver"
-                                )
-                            } catch (updateEx: Exception) {
-                                RamenBackgroundService.onUpdateFinished(
-                                    applicationContext,
-                                    autoUpdateId,
-                                    false,
-                                    extractCleanErrorMessage(updateEx)
-                                )
-                                throw updateEx
-                            }
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.w(TAG, "Background auto-update yt-dlp notice: ${e.message}")
-                    }
-                    try {
-                        if (silentWebViewUserAgent.isBlank() || !getSilentCookiesFile().exists()) {
-                            harvestCookiesSilently("https://www.youtube.com", 4500L)
-                        }
-                    } catch (_: Exception) {}
-                }
-            } catch (_: Exception) {}
 
             isEngineInitialized = true
         }
@@ -1132,12 +498,6 @@ class MainActivity : FlutterActivity() {
 
                     "updateEngine" -> {
                         val channelArg = call.argument<String>("channel")?.trim() ?: "nightly"
-                        val updateId = "update_${System.currentTimeMillis()}"
-                        RamenBackgroundService.onUpdateStarted(
-                            applicationContext,
-                            updateId,
-                            "Updating yt-dlp (${channelArg.uppercase()})..."
-                        )
                         executor.execute {
                             try {
                                 ensureEngineInitialized()
@@ -1149,58 +509,14 @@ class MainActivity : FlutterActivity() {
                                 YoutubeDL.getInstance().updateYoutubeDL(applicationContext, updateChannel)
                                 isJsRuntimesSupported = null
                                 getOrCreateConfigFile()
-                                getAutoUpdatedMarkerFile().writeText(System.currentTimeMillis().toString())
                                 val newVersion = YoutubeDL.getInstance().version(applicationContext)
                                     ?: "Updated (${channelArg.uppercase()})"
                                 val displayVer = "$newVersion (${channelArg.uppercase()})"
-                                RamenBackgroundService.onUpdateFinished(
-                                    applicationContext,
-                                    updateId,
-                                    true,
-                                    "yt-dlp updated to $displayVer"
-                                )
                                 safeResult.success(displayVer)
                             } catch (e: Exception) {
                                 android.util.Log.e(TAG, "Update engine error: ${e.message}", e)
                                 val cleanError = extractCleanErrorMessage(e)
-                                RamenBackgroundService.onUpdateFinished(
-                                    applicationContext,
-                                    updateId,
-                                    false,
-                                    cleanError
-                                )
                                 safeResult.error("UPDATE_ERROR", cleanError, e.message)
-                            }
-                        }
-                    }
-
-                    "refreshSilentCookies" -> {
-                        val targetUrl = call.argument<String>("url")?.trim()?.takeIf { it.isNotEmpty() }
-                            ?: "https://www.youtube.com"
-                        val updateId = "cookie_sync_${System.currentTimeMillis()}"
-                        RamenBackgroundService.onUpdateStarted(
-                            applicationContext,
-                            updateId,
-                            "Syncing WebView cookies & User-Agent..."
-                        )
-                        executor.execute {
-                            try {
-                                val ok = harvestCookiesSilently(targetUrl, 6000L)
-                                RamenBackgroundService.onUpdateFinished(
-                                    applicationContext,
-                                    updateId,
-                                    true,
-                                    if (ok) "WebView cookies & User-Agent synced" else "Cookie sync finished"
-                                )
-                                safeResult.success(ok)
-                            } catch (e: Exception) {
-                                RamenBackgroundService.onUpdateFinished(
-                                    applicationContext,
-                                    updateId,
-                                    false,
-                                    extractCleanErrorMessage(e)
-                                )
-                                safeResult.success(false)
                             }
                         }
                     }
@@ -1250,121 +566,53 @@ class MainActivity : FlutterActivity() {
                             return@setMethodCallHandler
                         }
 
-                        RamenBackgroundService.onSearchStarted(applicationContext, searchId, rawUrl)
-
                         executor.execute {
-                            var succeeded = false
-                            val url = normalizeMediaUrl(rawUrl)
                             try {
                                 ensureEngineInitialized()
                                 val configFile = getOrCreateConfigFile()
-                                var jsonOut: String? = null
+                                val jsonRequest = YoutubeDLRequest(rawUrl)
+                                jsonRequest.addOption("--config-locations", configFile.absolutePath)
+                                jsonRequest.addOption("--dump-single-json")
+                                jsonRequest.addOption("--no-warnings")
 
-                                // 1. Fetch metadata using --dump-single-json with playlist & live support
-                                try {
-                                    val jsonRequest = YoutubeDLRequest(url)
-                                    jsonRequest.addOption("--config-locations", configFile.absolutePath)
-                                    jsonRequest.addOption("--dump-single-json")
-                                    jsonRequest.addOption("--no-warnings")
+                                val lower = rawUrl.lowercase()
+                                val isPlaylist = Regex("^[a-z]+search\\d*:").containsMatchIn(lower) ||
+                                    lower.contains("/playlist") ||
+                                    lower.contains("/sets/") ||
+                                    lower.contains("/album/") ||
+                                    lower.contains("/@") ||
+                                    (lower.contains("list=") && !lower.contains("v="))
+                                val isLive = lower.contains("/live/") ||
+                                    lower.contains("/live?") ||
+                                    lower.contains("twitch.tv/") ||
+                                    lower.contains("kick.com/")
+
+                                if (isPlaylist) {
                                     jsonRequest.addOption("--flat-playlist")
                                     jsonRequest.addOption("--ignore-errors")
-                                    applySilentCookiesAndUserAgent(jsonRequest, url, extraArgs, isRetryFallback = false)
-                                    applyOptions(jsonRequest, extraArgs)
-
-                                    val jsonResponse: YoutubeDLResponse = YoutubeDL.getInstance().execute(jsonRequest, searchId, null)
-                                    jsonOut = jsonResponse.out
-                                } catch (jsonEx: Exception) {
-                                    if (isCancellationException(jsonEx)) {
-                                        throw jsonEx
-                                    }
-                                    val errMsg = jsonEx.message ?: ""
-                                    val isInstagramEmptyOrLogin =
-                                        (url.contains("instagram.com", ignoreCase = true) || url.contains("instagr.am", ignoreCase = true)) &&
-                                            (errMsg.contains("empty media response", ignoreCase = true) ||
-                                                errMsg.contains("login required", ignoreCase = true) ||
-                                                errMsg.contains("cookies", ignoreCase = true))
-
-                                    if (isInstagramEmptyOrLogin) {
-                                        android.util.Log.w(TAG, "Instagram empty media response detected; trying Silent WebView Embed Extractor for $url")
-                                        // A. Try Silent WebView / Embed HTML extraction immediately
-                                        jsonOut = extractInstagramViaSilentWebView(url)
-                                        if (!jsonOut.isNullOrBlank()) {
-                                            // Also map rawUrl in case it differed before normalization
-                                            resolvedDirectMediaUrls[url]?.let { resolvedDirectMediaUrls[rawUrl] = it }
-                                        } else {
-                                            // B. Auto-update yt-dlp to NIGHTLY and retry once
-                                            try {
-                                                YoutubeDL.getInstance().updateYoutubeDL(
-                                                    applicationContext,
-                                                    YoutubeDL.UpdateChannel.NIGHTLY
-                                                )
-                                                val retryIgReq = YoutubeDLRequest(url)
-                                                retryIgReq.addOption("--config-locations", configFile.absolutePath)
-                                                retryIgReq.addOption("--dump-single-json")
-                                                retryIgReq.addOption("--no-warnings")
-                                                retryIgReq.addOption("-4")
-                                                applySilentCookiesAndUserAgent(retryIgReq, url, extraArgs, isRetryFallback = true)
-                                                val retryRes = YoutubeDL.getInstance().execute(retryIgReq, searchId, null)
-                                                jsonOut = retryRes.out
-                                            } catch (igRetryEx: Exception) {
-                                                if (isCancellationException(igRetryEx)) throw igRetryEx
-                                                android.util.Log.w(TAG, "Instagram nightly retry failed: ${igRetryEx.message}")
-                                            }
-                                        }
-                                    } else if (errMsg.contains("403") || errMsg.contains("Forbidden", ignoreCase = true) || errMsg.contains("bot", ignoreCase = true)) {
-                                        android.util.Log.w(TAG, "403/Bot-check during getFormats; running silent WebView cookie harvest for $url")
-                                        harvestCookiesSilently(url, 5500L)
-                                        try {
-                                            val retryRequest = YoutubeDLRequest(url)
-                                            retryRequest.addOption("--config-locations", configFile.absolutePath)
-                                            retryRequest.addOption("--dump-single-json")
-                                            retryRequest.addOption("--no-warnings")
-                                            retryRequest.addOption("--flat-playlist")
-                                            retryRequest.addOption("-4")
-                                            retryRequest.addOption("-S", "proto,vcodec:h264,ext")
-                                            applySilentCookiesAndUserAgent(retryRequest, url, extraArgs, isRetryFallback = true)
-                                            applyOptions(retryRequest, extraArgs)
-                                            val retryRes = YoutubeDL.getInstance().execute(retryRequest, searchId, null)
-                                            jsonOut = retryRes.out
-                                        } catch (retryEx: Exception) {
-                                            if (isCancellationException(retryEx)) throw retryEx
-                                            android.util.Log.w(TAG, "Silent 403 retry failed, falling back to -F: ${retryEx.message}")
-                                        }
-                                    } else {
-                                        android.util.Log.w(TAG, "--dump-single-json failed, trying -F fallback: $errMsg")
-                                    }
-                                }
-
-                                // 2. Fallback to -F table extraction if JSON was not returned
-                                if (jsonOut.isNullOrBlank()) {
-                                    val tableRequest = YoutubeDLRequest(url)
-                                    tableRequest.addOption("--config-locations", configFile.absolutePath)
-                                    tableRequest.addOption("-F")
-                                    applySilentCookiesAndUserAgent(tableRequest, url, extraArgs, isRetryFallback = false)
-                                    applyOptions(tableRequest, extraArgs)
-                                    val tableResponse: YoutubeDLResponse = YoutubeDL.getInstance().execute(tableRequest, searchId, null)
-                                    jsonOut = tableResponse.out
-                                }
-
-                                if (jsonOut.isNullOrBlank()) {
-                                    safeResult.error("FORMAT_EXTRACTION_FAILED", "yt-dlp returned empty format output for URL")
+                                } else if (isLive) {
+                                    jsonRequest.addOption("--no-playlist")
+                                    jsonRequest.addOption("--no-check-formats")
                                 } else {
-                                    succeeded = true
+                                    jsonRequest.addOption("--no-playlist")
+                                }
+
+                                applyOptions(jsonRequest, extraArgs)
+
+                                val jsonResponse: YoutubeDLResponse = YoutubeDL.getInstance().execute(jsonRequest, searchId, null)
+                                val jsonOut = jsonResponse.out
+                                if (jsonOut.isNullOrBlank()) {
+                                    safeResult.error("FORMAT_EXTRACTION_FAILED", "yt-dlp returned empty JSON output for URL")
+                                } else {
                                     safeResult.success(jsonOut)
                                 }
                             } catch (e: Exception) {
                                 if (isCancellationException(e)) {
                                     safeResult.error("SEARCH_CANCELLED", "Search cancelled by user")
-                                    RamenBackgroundService.onSearchFinished(applicationContext, searchId, false, rawUrl, "Cancelled")
                                 } else {
                                     android.util.Log.e(TAG, "getFormats error: ${e.message}", e)
                                     val cleanError = extractCleanErrorMessage(e)
                                     safeResult.error("FORMAT_EXTRACTION_FAILED", cleanError, e.message)
-                                    RamenBackgroundService.onSearchFinished(applicationContext, searchId, false, rawUrl, cleanError)
-                                }
-                            } finally {
-                                if (succeeded) {
-                                    RamenBackgroundService.onSearchFinished(applicationContext, searchId, true, rawUrl)
                                 }
                             }
                         }
@@ -1382,7 +630,6 @@ class MainActivity : FlutterActivity() {
                             } catch (e: Exception) {
                                 android.util.Log.w(TAG, "cancelSearch destroyProcessById notice: ${e.message}")
                             }
-                            RamenBackgroundService.onSearchFinished(applicationContext, searchId, false, "")
                             safeResult.success(true)
                         }
                     }
@@ -1473,11 +720,6 @@ class MainActivity : FlutterActivity() {
                         executor.execute {
                             try {
                                 ensureEngineInitialized()
-                                val normalizedUrl = normalizeMediaUrl(rawUrl)
-                                val effectiveDownloadUrl = resolvedDirectMediaUrls[rawUrl]
-                                    ?: resolvedDirectMediaUrls[normalizedUrl]
-                                    ?: normalizedUrl
-                                val isUsingDirectCdn = effectiveDownloadUrl != normalizedUrl
 
                                 val targetDir = resolveTargetDirectory(outDir)
                                 val downloadStartTimeMs = System.currentTimeMillis() - 2000L
@@ -1486,207 +728,60 @@ class MainActivity : FlutterActivity() {
                                     ?.map { "${it.name}:${it.length()}:${it.lastModified()}" }
                                     ?.toSet() ?: emptySet()
 
-                                val request = YoutubeDLRequest(effectiveDownloadUrl)
+                                val request = YoutubeDLRequest(rawUrl)
                                 val safeBaseTitle = title.replace(Regex("""[\\/:*?"<>|]"""), "_").take(120)
-                                val outTemplate = if (isUsingDirectCdn && safeBaseTitle.isNotBlank()) {
-                                    File(targetDir, "$safeBaseTitle.%(ext)s").absolutePath
-                                } else {
-                                    File(targetDir, "%(title).200B.%(ext)s").absolutePath
-                                }
+                                val outTemplate = File(targetDir, "%(title).200B.%(ext)s").absolutePath
                                 request.addOption("-o", outTemplate)
                                 request.addOption("-P", "temp:${getTempDownloadDir().absolutePath}")
-                                request.addOption("--no-mtime")
-                                request.addOption("--no-embed-info-json")
 
                                 val configFile = getOrCreateConfigFile()
                                 if (!args.contains("--config-locations")) {
                                     request.addOption("--config-locations", configFile.absolutePath)
                                 }
-                                val filteredArgs = if (isUsingDirectCdn) {
-                                    val cleaned = mutableListOf<String>()
-                                    var skip = false
-                                    for (a in args) {
-                                        if (skip) {
-                                            skip = false
-                                            continue
-                                        }
-                                        if (a == "-f" || a == "--format") {
-                                            skip = true
-                                            continue
-                                        }
-                                        cleaned.add(a)
-                                    }
-                                    cleaned
-                                } else {
-                                    args
-                                }
-                                applySilentCookiesAndUserAgent(request, normalizedUrl, filteredArgs, isRetryFallback = false)
-                                applyOptions(request, filteredArgs)
+                                applyOptions(request, args)
 
                                 val speedRegex = Regex("""at\s+([0-9.]+\s*[kKmMgG]?[iI]?[bB]/s)""")
                                 val liveElapsedRegex = Regex("""\(([0-9:]+)\)""")
                                 var detectedFilePath: String? = null
 
-                                var downloadException: Exception? = null
-                                try {
-                                    YoutubeDL.getInstance().execute(request, taskId) { progress, etaInSeconds, line ->
-                                        if (cancelledTasks.contains(taskId)) {
-                                            return@execute
-                                        }
-                                        val rawLine = line ?: ""
-                                        parseFilePathFromYtDlpLine(rawLine)?.let { parsed ->
-                                            detectedFilePath = parsed
-                                        }
-                                        val speedMatch = speedRegex.find(rawLine)
-                                        val speed = speedMatch?.groupValues?.getOrNull(1) ?: ""
-                                        val safeProgress = if (progress < 0f) 0.0 else progress.toDouble()
-                                        val liveElapsed = liveElapsedRegex.find(rawLine)?.groupValues?.getOrNull(1)
-                                        val etaValue: Any = if (etaInSeconds < 0 && liveElapsed != null) {
-                                            "LIVE $liveElapsed"
-                                        } else if (etaInSeconds < 0) {
-                                            "LIVE"
-                                        } else {
-                                            etaInSeconds
-                                        }
-
-                                        RamenBackgroundService.onDownloadProgress(
-                                            applicationContext,
-                                            taskId,
-                                            safeProgress,
-                                            speed
-                                        )
-
-                                        emitEvent(
-                                            mapOf(
-                                                "taskId" to taskId,
-                                                "status" to "DOWNLOADING",
-                                                "progress" to safeProgress,
-                                                "speed" to speed,
-                                                "eta" to etaValue,
-                                                "filePath" to detectedFilePath,
-                                                "log" to rawLine
-                                            )
-                                        )
+                                YoutubeDL.getInstance().execute(request, taskId) { progress, etaInSeconds, line ->
+                                    if (cancelledTasks.contains(taskId)) {
+                                        return@execute
                                     }
-                                } catch (e: Exception) {
-                                    downloadException = e
-                                }
-
-                                // Resilient fallback for Instagram empty response, HTTP 403, aria2c exit code 22, or SponsorBlock error
-                                if (downloadException != null && !cancelledTasks.contains(taskId)) {
-                                    val err = downloadException.message ?: ""
-                                    val isInstagramErr = (normalizedUrl.contains("instagram.com", ignoreCase = true) ||
-                                        normalizedUrl.contains("instagr.am", ignoreCase = true)) &&
-                                        (err.contains("empty media response", ignoreCase = true) ||
-                                            err.contains("login required", ignoreCase = true))
-                                    val isSponsorBlockErr = err.contains("Unable to communicate with SponsorBlock API", ignoreCase = true)
-                                    val is403OrAriaErr = err.contains("403") ||
-                                        err.contains("Forbidden", ignoreCase = true) ||
-                                        err.contains("aria2c", ignoreCase = true) ||
-                                        err.contains("exit code 22", ignoreCase = true) ||
-                                        err.contains("code 22", ignoreCase = true)
-
-                                    if (isInstagramErr || is403OrAriaErr || isSponsorBlockErr) {
-                                        android.util.Log.w(TAG, "Recoverable download error ($err), applying Seal/Instagram fallback for $taskId")
-                                        emitEvent(
-                                            mapOf(
-                                                "taskId" to taskId,
-                                                "status" to "DOWNLOADING",
-                                                "progress" to 0.0,
-                                                "speed" to "Retrying...",
-                                                "eta" to 0,
-                                                "log" to "Applying silent WebView & native downloader fallback..."
-                                            )
-                                        )
-
-                                        var fallbackTargetUrl = effectiveDownloadUrl
-                                        if (isInstagramErr) {
-                                            extractInstagramViaSilentWebView(normalizedUrl)
-                                            resolvedDirectMediaUrls[normalizedUrl]?.let {
-                                                fallbackTargetUrl = it
-                                            }
-                                        } else if (is403OrAriaErr) {
-                                            harvestCookiesSilently(normalizedUrl, 5500L)
-                                        }
-
-                                        val fallbackRequest = YoutubeDLRequest(fallbackTargetUrl)
-                                        fallbackRequest.addOption("-o", outTemplate)
-                                        fallbackRequest.addOption("-P", "temp:${getTempDownloadDir().absolutePath}")
-                                        fallbackRequest.addOption("--no-mtime")
-                                        fallbackRequest.addOption("--no-embed-info-json")
-                                        fallbackRequest.addOption("-4")
-                                        if (fallbackTargetUrl == normalizedUrl) {
-                                            fallbackRequest.addOption("-S", "proto,vcodec:h264,ext")
-                                        }
-                                        if (!args.contains("--config-locations")) {
-                                            fallbackRequest.addOption("--config-locations", configFile.absolutePath)
-                                        }
-
-                                        val nonAriaArgs = mutableListOf<String>()
-                                        var skipNext = false
-                                        for (i in args.indices) {
-                                            if (skipNext) {
-                                                skipNext = false
-                                                continue
-                                            }
-                                            val a = args[i]
-                                            if (a == "--downloader" || a == "--external-downloader" || a == "--downloader-args" || a == "--external-downloader-args") {
-                                                skipNext = true
-                                                continue
-                                            }
-                                            if (fallbackTargetUrl != normalizedUrl && (a == "-f" || a == "--format" || a == "--embed-thumbnail")) {
-                                                if (a == "-f" || a == "--format") skipNext = true
-                                                continue
-                                            }
-                                            if (isSponsorBlockErr && a == "--sponsorblock-remove") {
-                                                skipNext = true
-                                                continue
-                                            }
-                                            if (a.startsWith("--downloader=") || a.startsWith("--external-downloader=") || a.startsWith("--downloader-args=") || a.startsWith("--external-downloader-args=")) {
-                                                continue
-                                            }
-                                            nonAriaArgs.add(a)
-                                        }
-                                        applySilentCookiesAndUserAgent(fallbackRequest, normalizedUrl, nonAriaArgs, isRetryFallback = true)
-                                        applyOptions(fallbackRequest, nonAriaArgs)
-
-                                        try {
-                                            downloadException = null
-                                            YoutubeDL.getInstance().execute(fallbackRequest, taskId) { progress, etaInSeconds, line ->
-                                                if (cancelledTasks.contains(taskId)) return@execute
-                                                val rawLine = line ?: ""
-                                                parseFilePathFromYtDlpLine(rawLine)?.let { parsed ->
-                                                    detectedFilePath = parsed
-                                                }
-                                                val speedMatch = speedRegex.find(rawLine)
-                                                val speed = speedMatch?.groupValues?.getOrNull(1) ?: ""
-                                                val safeProgress = if (progress < 0f) 0.0 else progress.toDouble()
-                                                RamenBackgroundService.onDownloadProgress(
-                                                    applicationContext,
-                                                    taskId,
-                                                    safeProgress,
-                                                    speed
-                                                )
-                                                emitEvent(
-                                                    mapOf(
-                                                        "taskId" to taskId,
-                                                        "status" to "DOWNLOADING",
-                                                        "progress" to safeProgress,
-                                                        "speed" to speed,
-                                                        "eta" to etaInSeconds,
-                                                        "filePath" to detectedFilePath,
-                                                        "log" to rawLine
-                                                    )
-                                                )
-                                            }
-                                        } catch (fallbackEx: Exception) {
-                                            downloadException = fallbackEx
-                                        }
+                                    val rawLine = line ?: ""
+                                    parseFilePathFromYtDlpLine(rawLine)?.let { parsed ->
+                                        detectedFilePath = parsed
                                     }
-                                }
+                                    val speedMatch = speedRegex.find(rawLine)
+                                    val speed = speedMatch?.groupValues?.getOrNull(1) ?: ""
+                                    val safeProgress = if (progress < 0f) 0.0 else progress.toDouble()
+                                    val liveElapsed = liveElapsedRegex.find(rawLine)?.groupValues?.getOrNull(1)
+                                    val etaValue: Any = if (etaInSeconds < 0 && liveElapsed != null) {
+                                        "LIVE $liveElapsed"
+                                    } else if (etaInSeconds < 0) {
+                                        "LIVE"
+                                    } else {
+                                        etaInSeconds
+                                    }
 
-                                if (downloadException != null) {
-                                    throw downloadException
+                                    RamenBackgroundService.onDownloadProgress(
+                                        applicationContext,
+                                        taskId,
+                                        safeProgress,
+                                        speed
+                                    )
+
+                                    emitEvent(
+                                        mapOf(
+                                            "taskId" to taskId,
+                                            "status" to "DOWNLOADING",
+                                            "progress" to safeProgress,
+                                            "speed" to speed,
+                                            "eta" to etaValue,
+                                            "filePath" to detectedFilePath,
+                                            "log" to rawLine
+                                        )
+                                    )
                                 }
 
                                 if (cancelledTasks.remove(taskId)) {

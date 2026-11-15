@@ -70,7 +70,7 @@ class _PreviewViewState extends State<PreviewView> {
               ),
               const SizedBox(height: 16),
               Text(
-                'RESOLVING STREAM METADATA...',
+                'SEARCHING...',
                 style: AppStyles.monoLabel.copyWith(
                   color: AppColors.textSecondary,
                   letterSpacing: 1.2,
@@ -152,9 +152,7 @@ class _PreviewViewState extends State<PreviewView> {
           },
         ),
         title: Text(
-          resource.isPlaylist
-              ? (resource.isSearchResult ? 'SEARCH // RESULTS' : 'PLAYLIST // STUDIO')
-              : (resource.isLive ? 'LIVE // BROADCAST' : 'STREAM // STUDIO'),
+          resource.url,
           style: AppStyles.monoHeadline.copyWith(
             fontSize: 13,
             letterSpacing: 2.0,
@@ -779,9 +777,8 @@ class _PreviewViewState extends State<PreviewView> {
             Image.network(
               resource.thumbnail!,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                color: AppColors.surfaceElevated,
-              ),
+              errorBuilder: (_, __, ___) =>
+                  Container(color: AppColors.surfaceElevated),
             )
           else
             Container(color: AppColors.surfaceElevated),
@@ -1508,6 +1505,7 @@ class _PreviewViewState extends State<PreviewView> {
         border: Border.all(color: AppColors.borderLight),
       ),
       child: Row(
+        spacing: 5,
         children: [
           Expanded(
             child: GestureDetector(
@@ -1815,16 +1813,16 @@ class _PreviewViewState extends State<PreviewView> {
     final String buttonLabel;
     final IconData buttonIcon;
     if (isPlaylist) {
-      buttonLabel = 'DOWNLOAD $selectedCount SELECTED TRACKS';
+      buttonLabel = 'DOWNLOAD $selectedCount SELECTED';
       buttonIcon = Icons.playlist_add_check_rounded;
     } else if (resource.isLive) {
-      buttonLabel = 'START LIVE RECORDING';
+      buttonLabel = 'RECORD LIVE';
       buttonIcon = Icons.sensors_rounded;
     } else if (resource.isUpcoming) {
-      buttonLabel = 'QUEUE SCHEDULED STREAM';
+      buttonLabel = 'QUEUE STREAM';
       buttonIcon = Icons.schedule_send_rounded;
     } else {
-      buttonLabel = 'START DOWNLOAD';
+      buttonLabel = 'DOWNLOAD';
       buttonIcon = Icons.south_rounded;
     }
 

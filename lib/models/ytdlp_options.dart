@@ -61,8 +61,8 @@ class YtDlpOptions {
   const YtDlpOptions({
     this.useAria2c = false,
     this.aria2Connections = 4,
-    this.concurrentFragments = 8,
-    this.retries = 10,
+    this.concurrentFragments = 0,
+    this.retries = 0,
     this.rateLimit,
     this.isAudioOnly = false,
     this.audioFormat = 'mp3',
@@ -74,18 +74,18 @@ class YtDlpOptions {
     this.writeAutoSubtitles = false,
     this.skipAutoTranslatedSubtitles = true,
     this.subLangs = 'en.*',
-    this.embedChapters = true,
-    this.embedThumbnail = true,
-    this.embedMetadata = true,
-    this.cropAudioArtwork = true,
+    this.embedChapters = false,
+    this.embedThumbnail = false,
+    this.embedMetadata = false,
+    this.cropAudioArtwork = false,
     this.restrictFilenames = false,
     this.proxy,
-    this.socketTimeout = 30,
+    this.socketTimeout = 0,
     this.userAgent,
-    this.forceIpv4 = true,
+    this.forceIpv4 = false,
     this.forceIpv6 = false,
     this.customHeaders = const [],
-    this.geoBypass = true,
+    this.geoBypass = false,
     this.geoBypassCountry,
     this.preferProtocolCompatibility = false,
     this.formatSortString,
@@ -200,7 +200,7 @@ class YtDlpOptions {
   }
 
   List<String> buildSearchArgs() {
-    final args = <String>['--ignore-errors'];
+    final args = <String>[];
     if (restrictFilenames) {
       args.add('--restrict-filenames');
     }
@@ -235,10 +235,7 @@ class YtDlpOptions {
     required String formatId,
     bool isLiveStream = false,
   }) {
-    final args = <String>[
-      '--no-mtime',
-      '--no-embed-info-json',
-    ];
+    final args = <String>[];
 
     if (restrictFilenames) {
       args.add('--restrict-filenames');
@@ -254,41 +251,27 @@ class YtDlpOptions {
     }
 
     if (useAria2c && !isLiveStream) {
+      if (concurrentFragments > 0) {
+        args.addAll(['--concurrent-fragments', '$concurrentFragments']);
+      }
       args.addAll([
-        '--concurrent-fragments',
-        '$concurrentFragments',
         '--downloader',
         'aria2c',
         '--downloader-args',
         'aria2c:-c -j $aria2Connections -x $aria2Connections -s $aria2Connections -k 1M',
       ]);
-    } else {
+    } else if (concurrentFragments > 0) {
       args.addAll([
         '--concurrent-fragments',
         '$concurrentFragments',
       ]);
     }
 
-    if (isLiveStream) {
-      args.add('--no-part');
-      if (liveFromStart) {
-        args.add('--live-from-start');
-      } else {
-        if (hlsUseMpegts) {
-          args.add('--hls-use-mpegts');
-        }
-        args.addAll([
-          '--downloader-args',
-          'ffmpeg_i:-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-        ]);
-      }
-    } else {
-      if (liveFromStart) {
-        args.add('--live-from-start');
-      }
-      if (hlsUseMpegts) {
-        args.add('--hls-use-mpegts');
-      }
+    if (liveFromStart) {
+      args.add('--live-from-start');
+    }
+    if (hlsUseMpegts) {
+      args.add('--hls-use-mpegts');
     }
 
     if (waitForVideoSeconds != null && waitForVideoSeconds! > 0) {
@@ -296,14 +279,9 @@ class YtDlpOptions {
     }
 
     if (yesPlaylist) {
-      args.addAll(['--yes-playlist', '--ignore-errors']);
-    } else if (playlistItems == null || playlistItems!.trim().isEmpty) {
-      args.add('--no-playlist');
+      args.add('--yes-playlist');
     }
     if (playlistItems != null && playlistItems!.trim().isNotEmpty) {
-      if (!args.contains('--ignore-errors')) {
-        args.add('--ignore-errors');
-      }
       args.addAll(['--playlist-items', playlistItems!.trim()]);
     }
 

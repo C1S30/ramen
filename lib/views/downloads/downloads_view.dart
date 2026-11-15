@@ -37,7 +37,7 @@ class DownloadsView extends StatelessWidget {
         title: Row(
           children: [
             Text(
-              'TASK QUEUE',
+              'DOWNLOADS',
               style: AppStyles.monoHeadline.copyWith(
                 fontSize: 15,
                 letterSpacing: 2.5,
@@ -304,7 +304,7 @@ class DownloadsView extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             Text(
-              'QUEUE // EMPTY',
+              'NO DOWNLOADS',
               style: AppStyles.monoHeadline.copyWith(
                 fontSize: 14,
                 letterSpacing: 1.5,
@@ -312,7 +312,7 @@ class DownloadsView extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Extract a video, audio track, playlist, or live stream from the home tab.',
+              'Search for a video, playlist, or paste a link on the home tab.',
               textAlign: TextAlign.center,
               style: AppStyles.monoSmall.copyWith(color: AppColors.textMuted),
             ),
@@ -327,12 +327,12 @@ class DownloadsView extends StatelessWidget {
                 ),
               ),
               icon: const Icon(
-                Icons.north_east_rounded,
+                Icons.search_rounded,
                 size: 16,
                 color: AppColors.onAccent,
               ),
               label: Text(
-                'EXTRACT MEDIA',
+                'SEARCH',
                 style: AppStyles.monoLabel.copyWith(
                   color: AppColors.onAccent,
                   fontSize: 11.5,

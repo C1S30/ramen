@@ -190,16 +190,16 @@ class _RootNavigationViewState extends State<RootNavigationView>
               ),
               tabs: [
                 const GButton(
-                  icon: Icons.north_east_rounded,
-                  text: 'EXTRACT',
+                  icon: Icons.search_rounded,
+                  text: 'SEARCH',
                 ),
                 GButton(
                   icon: Icons.south_rounded,
-                  text: activeCount > 0 ? 'QUEUE ($activeCount)' : 'QUEUE',
+                  text: activeCount > 0 ? 'DOWNLOADS ($activeCount)' : 'DOWNLOADS',
                 ),
                 const GButton(
                   icon: Icons.tune_rounded,
-                  text: 'SYSTEM',
+                  text: 'SETTINGS',
                 ),
               ],
             ),
@@ -290,8 +290,8 @@ class _RootNavigationViewState extends State<RootNavigationView>
                       : (isSearching
                             ? (query.isNotEmpty
                                   ? query
-                                  : 'Resolving media metadata...')
-                            : (resource?.title ?? 'Media ready to preview')),
+                                  : 'Searching...')
+                            : (resource?.title ?? 'Ready to download')),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppStyles.bodyMedium.copyWith(

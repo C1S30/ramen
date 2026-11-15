@@ -71,12 +71,12 @@ class _HomeViewState extends State<HomeView> {
         title: Row(
           children: [
             Container(
-              width: 28,
-              height: 28,
-              padding: const EdgeInsets.all(4),
+              width: 22,
+              height: 22,
+              padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
                 color: AppColors.surfaceElevated,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(6),
                 border: Border.all(color: AppColors.borderLight),
               ),
               child: Image.asset(
@@ -116,7 +116,7 @@ class _HomeViewState extends State<HomeView> {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    searchCtrl.isLoading ? 'RESOLVING' : 'YT-DLP // READY',
+                    searchCtrl.isLoading ? 'SEARCHING' : 'READY',
                     style: AppStyles.monoSmall.copyWith(
                       fontSize: 9.5,
                       color: AppColors.textPrimary,
@@ -146,7 +146,7 @@ class _HomeViewState extends State<HomeView> {
                   if (!hasResource) ...[
                     const SizedBox(height: 12),
                     Text(
-                      'UNIVERSAL STREAM ENGINE',
+                      'MEDIA DOWNLOADER',
                       style: AppStyles.caption.copyWith(
                         letterSpacing: 2.0,
                         color: AppColors.textSecondary,
@@ -154,7 +154,7 @@ class _HomeViewState extends State<HomeView> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Extract Video, Audio,\nPlaylists & Live Streams.',
+                      'Search or paste a link\nto download media.',
                       style: AppStyles.monoDisplay.copyWith(
                         fontSize: 24,
                         height: 1.25,
@@ -208,7 +208,7 @@ class _HomeViewState extends State<HomeView> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'SOURCE URL / SEARCH QUERY',
+                'URL OR SEARCH',
                 style: AppStyles.caption.copyWith(letterSpacing: 1.2),
               ),
               Row(
@@ -338,7 +338,7 @@ class _HomeViewState extends State<HomeView> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          'INSPECTING STREAM  •  TAP TO CANCEL',
+                          'SEARCHING...  •  TAP TO CANCEL',
                           style: AppStyles.monoLabel.copyWith(
                             fontSize: 11.5,
                             letterSpacing: 0.8,
@@ -361,7 +361,7 @@ class _HomeViewState extends State<HomeView> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'EXTRACT MEDIA',
+                          'SEARCH',
                           style: AppStyles.monoHeadline.copyWith(
                             color: AppColors.onAccent,
                             fontSize: 13,
@@ -371,7 +371,7 @@ class _HomeViewState extends State<HomeView> {
                         ),
                         const SizedBox(width: 8),
                         const Icon(
-                          Icons.north_east_rounded,
+                          Icons.search_rounded,
                           size: 18,
                           color: AppColors.onAccent,
                         ),
@@ -560,7 +560,7 @@ class _HomeViewState extends State<HomeView> {
                   Row(
                     children: [
                       Text(
-                        'CONFIGURE & DOWNLOAD',
+                        'OPEN & DOWNLOAD',
                         style: AppStyles.monoAccent.copyWith(
                           fontSize: 11,
                           letterSpacing: 0.6,
