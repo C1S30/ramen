@@ -17,7 +17,7 @@ class DownloadTask {
   final int? durationSeconds;
   final String selectedFormatId;
   final String extension;
-  final int? totalBytes;
+  int? totalBytes;
   int downloadedBytes;
   double progress;
   String speed;

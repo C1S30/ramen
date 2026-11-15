@@ -129,37 +129,28 @@ class CompletedTaskCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (isFailed && onRetry != null) ...[
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      icon: const Icon(
-                        Icons.refresh_rounded,
-                        size: 18,
-                        color: AppColors.textPrimary,
-                      ),
-                      tooltip: 'Retry download',
-                      onPressed: onRetry,
+                    _buildActionPill(
+                      icon: Icons.refresh_rounded,
+                      label: 'RETRY',
+                      isPrimary: true,
+                      onTap: onRetry!,
                     ),
+                    const SizedBox(width: 6),
                   ] else if (!isFailed) ...[
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      icon: const Icon(
-                        Icons.play_arrow_rounded,
-                        size: 20,
-                        color: AppColors.textPrimary,
-                      ),
-                      tooltip: 'Open file',
-                      onPressed: onOpen,
+                    _buildActionPill(
+                      icon: Icons.play_arrow_rounded,
+                      label: 'PLAY',
+                      isPrimary: true,
+                      onTap: onOpen,
                     ),
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      icon: const Icon(
-                        Icons.share_outlined,
-                        size: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                      tooltip: 'Share',
-                      onPressed: onShare,
+                    const SizedBox(width: 6),
+                    _buildActionPill(
+                      icon: Icons.share_outlined,
+                      label: 'SHARE',
+                      isPrimary: false,
+                      onTap: onShare,
                     ),
+                    const SizedBox(width: 4),
                   ],
                   IconButton(
                     visualDensity: VisualDensity.compact,
@@ -200,6 +191,50 @@ class CompletedTaskCard extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildActionPill({
+    required IconData icon,
+    required String label,
+    required bool isPrimary,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: isPrimary ? AppColors.accent : AppColors.surfaceElevated,
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5.5),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: isPrimary ? AppColors.accent : AppColors.borderLight,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 13,
+                color: isPrimary ? AppColors.onAccent : AppColors.textPrimary,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: AppStyles.monoSmall.copyWith(
+                  fontSize: 9.5,
+                  color: isPrimary ? AppColors.onAccent : AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -111,8 +111,18 @@ class DownloadsView extends StatelessWidget {
                             padding: const EdgeInsets.only(bottom: 10),
                             child: CompletedTaskCard(
                               task: task,
-                              onOpen: () => downloadCtrl.openFile(task),
-                              onShare: () => downloadCtrl.shareFile(task),
+                              onOpen: () async {
+                                final err = await downloadCtrl.openFile(task);
+                                if (err != null && context.mounted) {
+                                  _showFeedbackSnackBar(context, err);
+                                }
+                              },
+                              onShare: () async {
+                                final err = await downloadCtrl.shareFile(task);
+                                if (err != null && context.mounted) {
+                                  _showFeedbackSnackBar(context, err);
+                                }
+                              },
                               onRetry: () => downloadCtrl.resumeTask(task.id),
                               onDelete: () => downloadCtrl.deleteTask(task.id),
                             ),
@@ -125,6 +135,28 @@ class DownloadsView extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _showFeedbackSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.surfaceElevated,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: const BorderSide(color: AppColors.borderLight),
+          ),
+          content: Text(
+            message,
+            style: AppStyles.monoSmall.copyWith(
+              color: AppColors.textPrimary,
+              fontSize: 11,
+            ),
+          ),
+        ),
+      );
   }
 
   Widget _buildStatPill(String label, {bool isError = false}) {

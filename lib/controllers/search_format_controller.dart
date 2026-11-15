@@ -67,7 +67,7 @@ class SearchFormatController extends ChangeNotifier {
   List<String> get userCustomFlags => _userCustomFlags;
 
   void setUrl(String url) {
-    urlInputController.text = url;
+    urlInputController.text = _nativeBridge.extractUrlFromSharedText(url);
     notifyListeners();
   }
 
@@ -402,9 +402,16 @@ class SearchFormatController extends ChangeNotifier {
     bool preserveParentPlaylist = false,
   ]) async {
     if (targetUrl != null && targetUrl.trim().isNotEmpty) {
-      urlInputController.text = targetUrl.trim();
+      urlInputController.text = _nativeBridge.extractUrlFromSharedText(
+        targetUrl.trim(),
+      );
     }
-    final query = urlInputController.text.trim();
+    final query = _nativeBridge.extractUrlFromSharedText(
+      urlInputController.text.trim(),
+    );
+    if (query.isNotEmpty && query != urlInputController.text.trim()) {
+      urlInputController.text = query;
+    }
     if (query.isEmpty) {
       _errorMessage = 'Please enter a search query or paste a media link';
       notifyListeners();

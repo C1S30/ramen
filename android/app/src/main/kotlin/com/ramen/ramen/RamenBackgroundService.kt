@@ -15,10 +15,6 @@ import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import java.util.concurrent.ConcurrentHashMap
 
-/**
- * Foreground Service keeping yt-dlp, aria2c, and FFmpeg processes alive in the background
- * for both media searching/format extraction and multi-stream downloading.
- */
 class RamenBackgroundService : Service() {
     companion object {
         private const val TAG = "RamenBgService"
@@ -44,38 +40,60 @@ class RamenBackgroundService : Service() {
             val speed: String
         )
 
-        private val activeSearches = ConcurrentHashMap<String, String>() // searchId -> query
-        private val activeDownloads = ConcurrentHashMap<String, DownloadProgressInfo>() // taskId -> info
+        private val activeSearches = ConcurrentHashMap<String, String>()
+        private val activeDownloads = ConcurrentHashMap<String, DownloadProgressInfo>()
+        private val activeUpdates = ConcurrentHashMap<String, String>()
         private var alertNotificationCounter = 4200
 
         fun hasActiveWork(): Boolean {
-            return activeSearches.isNotEmpty() || activeDownloads.isNotEmpty()
+            return activeSearches.isNotEmpty() ||
+                activeDownloads.isNotEmpty() ||
+                activeUpdates.isNotEmpty()
         }
 
         fun onSearchStarted(context: Context, searchId: String, query: String) {
             activeSearches[searchId] = query
-            if (enableBackgroundProcessing) {
-                syncService(context)
-            }
+            syncService(context)
         }
 
-        fun onSearchFinished(context: Context, searchId: String, succeeded: Boolean, query: String) {
+        fun onSearchFinished(
+            context: Context,
+            searchId: String,
+            succeeded: Boolean,
+            query: String,
+            errorMsg: String? = null
+        ) {
             activeSearches.remove(searchId)
-            if (enableBackgroundProcessing && enableBackgroundNotifications && !isActivityInForeground && succeeded) {
-                postCompletionAlert(
-                    context,
-                    title = "Search & Format Inspection Ready",
-                    body = "Tap to preview formats for: $query"
-                )
+            if (enableBackgroundNotifications) {
+                if (succeeded) {
+                    postCompletionAlert(
+                        context,
+                        title = "Format Inspection Ready",
+                        body = "Resolved formats for: $query",
+                        isError = false
+                    )
+                } else if (!errorMsg.isNullOrBlank() &&
+                    !errorMsg.contains("cancelled", ignoreCase = true) &&
+                    !errorMsg.contains("canceled", ignoreCase = true)
+                ) {
+                    postCompletionAlert(
+                        context,
+                        title = "Search Failed",
+                        body = errorMsg,
+                        isError = true
+                    )
+                }
             }
             syncService(context)
         }
 
         fun onDownloadStarted(context: Context, taskId: String, title: String) {
-            activeDownloads[taskId] = DownloadProgressInfo(title = title, progress = 0.0, speed = "Starting...")
-            if (enableBackgroundProcessing) {
-                syncService(context)
-            }
+            activeDownloads[taskId] = DownloadProgressInfo(
+                title = title,
+                progress = 0.0,
+                speed = "Starting..."
+            )
+            syncService(context)
         }
 
         fun onDownloadProgress(context: Context, taskId: String, progress: Double, speed: String) {
@@ -86,27 +104,58 @@ class RamenBackgroundService : Service() {
                 progress = progress,
                 speed = speed.ifBlank { current?.speed ?: "" }
             )
-            if (enableBackgroundProcessing && enableBackgroundNotifications) {
+            if (enableBackgroundNotifications || enableBackgroundProcessing) {
                 syncService(context)
             }
         }
 
-        fun onDownloadFinished(context: Context, taskId: String, succeeded: Boolean, errorMsg: String? = null) {
+        fun onDownloadFinished(
+            context: Context,
+            taskId: String,
+            succeeded: Boolean,
+            errorMsg: String? = null
+        ) {
             val info = activeDownloads.remove(taskId)
-            if (enableBackgroundProcessing && enableBackgroundNotifications && !isActivityInForeground && info != null) {
+            val isCancelled = errorMsg?.contains("Cancel", ignoreCase = true) == true
+            if (enableBackgroundNotifications && info != null && !isCancelled) {
                 if (succeeded) {
                     postCompletionAlert(
                         context,
                         title = "Download Complete",
-                        body = info.title
+                        body = info.title,
+                        isError = false
                     )
                 } else {
                     postCompletionAlert(
                         context,
                         title = "Download Failed",
-                        body = errorMsg ?: info.title
+                        body = errorMsg ?: info.title,
+                        isError = true
                     )
                 }
+            }
+            syncService(context)
+        }
+
+        fun onUpdateStarted(context: Context, updateId: String, label: String) {
+            activeUpdates[updateId] = label
+            syncService(context)
+        }
+
+        fun onUpdateFinished(
+            context: Context,
+            updateId: String,
+            succeeded: Boolean,
+            message: String
+        ) {
+            activeUpdates.remove(updateId)
+            if (enableBackgroundNotifications) {
+                postCompletionAlert(
+                    context,
+                    title = if (succeeded) "Engine Update Complete" else "Engine Update Failed",
+                    body = message,
+                    isError = !succeeded
+                )
             }
             syncService(context)
         }
@@ -114,16 +163,25 @@ class RamenBackgroundService : Service() {
         fun syncService(context: Context) {
             try {
                 val appCtx = context.applicationContext
-                if (enableBackgroundProcessing && hasActiveWork()) {
-                    val intent = Intent(appCtx, RamenBackgroundService::class.java).apply {
-                        action = ACTION_SYNC
-                    }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        appCtx.startForegroundService(intent)
-                    } else {
-                        appCtx.startService(intent)
+                val nm = appCtx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                ensureChannels(nm)
+
+                if (hasActiveWork()) {
+                    if (enableBackgroundProcessing) {
+                        val intent = Intent(appCtx, RamenBackgroundService::class.java).apply {
+                            action = ACTION_SYNC
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            appCtx.startForegroundService(intent)
+                        } else {
+                            appCtx.startService(intent)
+                        }
+                    } else if (enableBackgroundNotifications) {
+                        val notification = createProgressNotification(appCtx)
+                        nm.notify(FOREGROUND_NOTIFICATION_ID, notification)
                     }
                 } else {
+                    nm.cancel(FOREGROUND_NOTIFICATION_ID)
                     val intent = Intent(appCtx, RamenBackgroundService::class.java).apply {
                         action = ACTION_STOP
                     }
@@ -134,7 +192,12 @@ class RamenBackgroundService : Service() {
             }
         }
 
-        private fun postCompletionAlert(context: Context, title: String, body: String) {
+        private fun postCompletionAlert(
+            context: Context,
+            title: String,
+            body: String,
+            isError: Boolean = false
+        ) {
             try {
                 val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 ensureChannels(nm)
@@ -149,10 +212,17 @@ class RamenBackgroundService : Service() {
                 }
                 val pendingIntent = PendingIntent.getActivity(context, 0, launchIntent, pendingFlags)
 
+                val icon = if (isError) {
+                    android.R.drawable.stat_notify_error
+                } else {
+                    android.R.drawable.stat_sys_download_done
+                }
+
                 val notification = NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
-                    .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                    .setSmallIcon(icon)
                     .setContentTitle(title)
                     .setContentText(body)
+                    .setStyle(NotificationCompat.BigTextStyle().bigText(body))
                     .setAutoCancel(true)
                     .setContentIntent(pendingIntent)
                     .setPriority(NotificationCompat.PRIORITY_DEFAULT)
@@ -164,14 +234,90 @@ class RamenBackgroundService : Service() {
             }
         }
 
+        fun createProgressNotification(context: Context): Notification {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            ensureChannels(nm)
+
+            val launchIntent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val pendingFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            } else {
+                PendingIntent.FLAG_UPDATE_CURRENT
+            }
+            val pendingIntent = PendingIntent.getActivity(context, 0, launchIntent, pendingFlags)
+
+            val searchCount = activeSearches.size
+            val downloadCount = activeDownloads.size
+            val updateCount = activeUpdates.size
+
+            val title = when {
+                updateCount > 0 ->
+                    "Ramen • Updating Engine"
+                searchCount > 0 && downloadCount > 0 ->
+                    "Ramen • $downloadCount Download(s) & $searchCount Search Active"
+                downloadCount > 0 ->
+                    if (downloadCount == 1) {
+                        activeDownloads.values.first().title
+                    } else {
+                        "Ramen • Downloading $downloadCount Streams"
+                    }
+                searchCount > 0 ->
+                    "Ramen • Searching Media Stream..."
+                else ->
+                    "Ramen Background Engine"
+            }
+
+            val subtitle = when {
+                updateCount > 0 -> {
+                    activeUpdates.values.firstOrNull() ?: "Updating yt-dlp binary..."
+                }
+                downloadCount > 0 -> {
+                    val avgProgress = activeDownloads.values
+                        .map { it.progress.coerceIn(0.0, 100.0) }
+                        .average()
+                    val firstSpeed = activeDownloads.values.firstOrNull { it.speed.isNotBlank() }?.speed ?: ""
+                    val progressText = if (avgProgress > 0.0) "${String.format("%.1f", avgProgress)}%" else "Live / Active"
+                    val extraSearch = if (searchCount > 0) " • Inspecting URL" else ""
+                    if (firstSpeed.isNotBlank()) "$progressText • $firstSpeed$extraSearch" else "$progressText$extraSearch"
+                }
+                searchCount > 0 -> {
+                    val firstQuery = activeSearches.values.firstOrNull() ?: ""
+                    "Inspecting formats: $firstQuery"
+                }
+                else -> "Processing in background"
+            }
+
+            val avgProgressInt = if (downloadCount > 0 && updateCount == 0) {
+                activeDownloads.values.map { it.progress.coerceIn(0.0, 100.0) }.average().toInt()
+            } else {
+                0
+            }
+            val indeterminate = updateCount > 0 ||
+                (searchCount > 0 && downloadCount == 0) ||
+                (downloadCount > 0 && avgProgressInt <= 0)
+
+            return NotificationCompat.Builder(context, PROGRESS_CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .setContentTitle(title)
+                .setContentText(subtitle)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setContentIntent(pendingIntent)
+                .setProgress(100, avgProgressInt, indeterminate)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .build()
+        }
+
         private fun ensureChannels(nm: NotificationManager) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val progressChannel = NotificationChannel(
                     PROGRESS_CHANNEL_ID,
-                    "Ramen Background Engine",
+                    "Ramen Active Operations",
                     NotificationManager.IMPORTANCE_LOW
                 ).apply {
-                    description = "Active background media searches and stream downloads"
+                    description = "Live progress for searches, downloads, and engine updates"
                     setShowBadge(false)
                 }
                 val alertChannel = NotificationChannel(
@@ -179,7 +325,7 @@ class RamenBackgroundService : Service() {
                     "Ramen Task Notifications",
                     NotificationManager.IMPORTANCE_DEFAULT
                 ).apply {
-                    description = "Notifications when background searches or downloads finish"
+                    description = "Alerts when searches, downloads, or engine updates finish"
                 }
                 nm.createNotificationChannel(progressChannel)
                 nm.createNotificationChannel(alertChannel)
@@ -205,7 +351,7 @@ class RamenBackgroundService : Service() {
                     return START_NOT_STICKY
                 }
                 acquireLocks()
-                val notification = buildForegroundNotification()
+                val notification = createProgressNotification(this)
                 startOrUpdateForeground(notification)
             }
         }
@@ -234,74 +380,6 @@ class RamenBackgroundService : Service() {
         }
     }
 
-    private fun buildForegroundNotification(): Notification {
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        ensureChannels(nm)
-
-        val launchIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
-        val pendingFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        } else {
-            PendingIntent.FLAG_UPDATE_CURRENT
-        }
-        val pendingIntent = PendingIntent.getActivity(this, 0, launchIntent, pendingFlags)
-
-        val searchCount = activeSearches.size
-        val downloadCount = activeDownloads.size
-
-        val title = when {
-            searchCount > 0 && downloadCount > 0 ->
-                "Ramen • $downloadCount Download(s) & $searchCount Search Active"
-            downloadCount > 0 ->
-                if (downloadCount == 1) {
-                    activeDownloads.values.first().title
-                } else {
-                    "Ramen • Downloading $downloadCount Streams"
-                }
-            searchCount > 0 ->
-                "Ramen • Searching Media Stream..."
-            else ->
-                "Ramen Background Engine"
-        }
-
-        val subtitle = when {
-            downloadCount > 0 -> {
-                val avgProgress = activeDownloads.values
-                    .map { it.progress.coerceIn(0.0, 100.0) }
-                    .average()
-                val firstSpeed = activeDownloads.values.firstOrNull { it.speed.isNotBlank() }?.speed ?: ""
-                val progressText = if (avgProgress > 0.0) "${String.format("%.1f", avgProgress)}%" else "Live / Active"
-                val extraSearch = if (searchCount > 0) " • Inspecting URL" else ""
-                if (firstSpeed.isNotBlank()) "$progressText • $firstSpeed$extraSearch" else "$progressText$extraSearch"
-            }
-            searchCount > 0 -> {
-                val firstQuery = activeSearches.values.firstOrNull() ?: ""
-                "Inspecting formats: $firstQuery"
-            }
-            else -> "Processing in background"
-        }
-
-        val avgProgressInt = if (downloadCount > 0) {
-            activeDownloads.values.map { it.progress.coerceIn(0.0, 100.0) }.average().toInt()
-        } else {
-            0
-        }
-        val indeterminate = searchCount > 0 && downloadCount == 0 || (downloadCount > 0 && avgProgressInt <= 0)
-
-        return NotificationCompat.Builder(this, PROGRESS_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle(title)
-            .setContentText(subtitle)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setContentIntent(pendingIntent)
-            .setProgress(100, avgProgressInt, indeterminate)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
-    }
-
     @Synchronized
     private fun acquireLocks() {
         try {
@@ -315,7 +393,7 @@ class RamenBackgroundService : Service() {
                 }
             }
             if (wakeLock?.isHeld == false) {
-                wakeLock?.acquire(6 * 60 * 60 * 1000L) // Up to 6 hours safety timeout
+                wakeLock?.acquire(6 * 60 * 60 * 1000L)
             }
         } catch (e: Exception) {
             android.util.Log.w(TAG, "WakeLock acquire warning: ${e.message}")
@@ -380,4 +458,3 @@ class RamenBackgroundService : Service() {
         super.onDestroy()
     }
 }
-

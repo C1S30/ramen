@@ -233,51 +233,89 @@ class _ActiveTaskCardState extends State<ActiveTaskCard> {
                 ),
               ),
               const SizedBox(width: 6),
-              InkWell(
-                onTap: isPaused ? widget.onResume : widget.onPause,
+              Material(
+                color: isPaused ? AppColors.accent : AppColors.surfaceElevated,
                 borderRadius: BorderRadius.circular(6),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceElevated,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppColors.borderLight),
-                  ),
-                  child: Text(
-                    isPaused ? 'RESUME' : 'PAUSE',
-                    style: AppStyles.monoSmall.copyWith(
-                      fontSize: 10,
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w700,
+                child: InkWell(
+                  onTap: isPaused ? widget.onResume : widget.onPause,
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isPaused
+                            ? AppColors.accent
+                            : AppColors.borderLight,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isPaused
+                              ? Icons.play_arrow_rounded
+                              : Icons.pause_rounded,
+                          size: 13,
+                          color: isPaused
+                              ? AppColors.onAccent
+                              : AppColors.textPrimary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          isPaused ? 'RESUME' : 'PAUSE',
+                          style: AppStyles.monoSmall.copyWith(
+                            fontSize: 10,
+                            color: isPaused
+                                ? AppColors.onAccent
+                                : AppColors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 6),
-              InkWell(
-                onTap: widget.onCancel,
+              Material(
+                color: AppColors.error.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(6),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.error.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: AppColors.error.withValues(alpha: 0.35),
+                child: InkWell(
+                  onTap: widget.onCancel,
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
                     ),
-                  ),
-                  child: Text(
-                    'STOP',
-                    style: AppStyles.monoSmall.copyWith(
-                      color: AppColors.error,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: AppColors.error.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.close_rounded,
+                          size: 13,
+                          color: AppColors.error,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'CANCEL',
+                          style: AppStyles.monoSmall.copyWith(
+                            color: AppColors.error,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

@@ -15,12 +15,15 @@ class NativeBridgeService {
 
   final StreamController<Map<String, dynamic>> _streamController =
       StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<String> _sharedUrlController =
+      StreamController<String>.broadcast();
 
   StreamSubscription? _nativeSubscription;
   bool _isInitialized = false;
 
   // Active desktop download processes (taskId -> Process)
   final Map<String, Process> _activeDesktopProcesses = {};
+  final Set<String> _cancelledDesktopTasks = {};
 
   // Active desktop search processes (searchId -> Process)
   final Map<String, Process> _activeDesktopSearchProcesses = {};
@@ -36,6 +39,13 @@ class NativeBridgeService {
         (dynamic rawData) {
           if (rawData is Map) {
             final mapped = Map<String, dynamic>.from(rawData);
+            if (mapped['type'] == 'SHARED_URL') {
+              final url = mapped['url']?.toString().trim() ?? '';
+              if (url.isNotEmpty) {
+                _sharedUrlController.add(extractUrlFromSharedText(url));
+              }
+              return;
+            }
             _streamController.add(mapped);
           }
         },
@@ -49,10 +59,24 @@ class NativeBridgeService {
   }
 
   Stream<Map<String, dynamic>> get downloadStream => _streamController.stream;
+  Stream<String> get sharedUrlStream => _sharedUrlController.stream;
+
+  /// Extracts a clean URL from shared text payloads (e.g. "Check out this video https://youtu.be/...")
+  String extractUrlFromSharedText(String rawText) {
+    final trimmed = rawText.trim();
+    final match = RegExp(
+      r'''https?://[^\s"'<>]+''',
+      caseSensitive: false,
+    ).firstMatch(trimmed);
+    if (match != null) {
+      return match.group(0)!.replaceAll(RegExp(r'[.,)\];!?]+$'), '');
+    }
+    return trimmed;
+  }
 
   /// Resolves raw user input (URL or search keywords) into a valid yt-dlp target
   String resolveTarget(String input) {
-    final trimmed = input.trim();
+    final trimmed = extractUrlFromSharedText(input.trim());
     if (trimmed.isEmpty) return trimmed;
 
     // Check for ytsearch or other search prefixes
@@ -273,12 +297,43 @@ class NativeBridgeService {
   Future<String?> getSharedUrl() async {
     try {
       if (Platform.isAndroid) {
-        return await _engineChannel.invokeMethod<String>('getSharedUrl');
+        final raw = await _engineChannel.invokeMethod<String>('getSharedUrl');
+        if (raw != null && raw.trim().isNotEmpty) {
+          return extractUrlFromSharedText(raw);
+        }
       }
     } catch (e) {
       debugPrint('Shared url check: $e');
     }
     return null;
+  }
+
+  /// Resolves the local file path of a completed download task if missing or moved
+  Future<String?> resolveTaskFile({
+    required String title,
+    required String outDir,
+    required String ext,
+  }) async {
+    if (Platform.isAndroid) {
+      try {
+        return await _engineChannel.invokeMethod<String>('resolveTaskFile', {
+          'title': title,
+          'outDir': outDir,
+          'ext': ext,
+        });
+      } catch (_) {
+        return null;
+      }
+    }
+
+    try {
+      final targetDir = _resolveDesktopTargetDir(outDir);
+      if (!targetDir.existsSync()) return null;
+      final match = _findMatchingDesktopFile(targetDir, title, ext);
+      return match?.path;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Syncs background processing and notification settings to the native Android service
@@ -575,34 +630,115 @@ class NativeBridgeService {
     return _startDesktopDownload(
       taskId: taskId,
       url: url,
+      title: title ?? url,
       outDir: outDir,
       args: args,
     );
   }
 
+  Directory _resolveDesktopTargetDir(String outDir) {
+    if (outDir.isNotEmpty && Directory(outDir).isAbsolute) {
+      return Directory(outDir);
+    }
+    final home =
+        Platform.environment['USERPROFILE'] ??
+        Platform.environment['HOME'] ??
+        Directory.current.path;
+    final sub = (outDir.isEmpty || outDir == 'Download/Ramen')
+        ? 'Downloads${Platform.pathSeparator}Ramen'
+        : outDir.replaceAll('/', Platform.pathSeparator);
+    return Directory('$home${Platform.pathSeparator}$sub');
+  }
+
+  String? _parseDesktopFilePathFromLine(String line) {
+    final trimmed = line.trim();
+    if (trimmed.isEmpty) return null;
+    final patterns = [
+      RegExp(r'\[Merger\] Merging formats into "(.+?)"'),
+      RegExp(r'\[VideoRemuxer\] Remuxing video from \S+ to "(.+?)"'),
+      RegExp(r'\[FixupM3u8\] Fixing MPEG-TS in MP4 container of "(.+?)"'),
+      RegExp(r'\[ExtractAudio\] Destination:\s+(.+)$'),
+      RegExp(r'\[download\] Destination:\s+(.+)$'),
+      RegExp(r'\[download\]\s+(.+?)\s+has already been downloaded'),
+    ];
+    for (final regex in patterns) {
+      final match = regex.firstMatch(trimmed);
+      if (match != null) {
+        final p = (match.group(1) ?? '').trim().replaceAll('"', '');
+        if (p.isNotEmpty) return p;
+      }
+    }
+    return null;
+  }
+
+  File? _findMatchingDesktopFile(
+    Directory targetDir,
+    String title,
+    String ext, {
+    DateTime? startedAfter,
+  }) {
+    if (!targetDir.existsSync()) return null;
+    final files = targetDir
+        .listSync()
+        .whereType<File>()
+        .where((f) {
+          final lower = f.path.toLowerCase();
+          return !lower.endsWith('.part') &&
+              !lower.endsWith('.ytdl') &&
+              !lower.endsWith('.temp') &&
+              !lower.endsWith('.aria2');
+        })
+        .toList();
+    if (files.isEmpty) return null;
+
+    if (startedAfter != null) {
+      final recent = files.where(
+        (f) => f.lastModifiedSync().isAfter(
+          startedAfter.subtract(const Duration(seconds: 3)),
+        ),
+      ).toList();
+      if (recent.isNotEmpty) {
+        recent.sort(
+          (a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()),
+        );
+        return recent.first;
+      }
+    }
+
+    final normTitle = title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    if (normTitle.length >= 3) {
+      final prefix = normTitle.length > 20
+          ? normTitle.substring(0, 20)
+          : normTitle;
+      for (final file in files) {
+        final name = file.uri.pathSegments.last;
+        final normName = name
+            .toLowerCase()
+            .replaceAll(RegExp(r'[^a-z0-9]'), '');
+        if (normName.contains(prefix)) {
+          return file;
+        }
+      }
+    }
+    return null;
+  }
+
   Future<bool> _startDesktopDownload({
     required String taskId,
     required String url,
+    required String title,
     required String outDir,
     required List<String> args,
   }) async {
     try {
-      Directory targetDir;
-      if (outDir.isNotEmpty && Directory(outDir).isAbsolute) {
-        targetDir = Directory(outDir);
-      } else {
-        final home =
-            Platform.environment['USERPROFILE'] ??
-            Platform.environment['HOME'] ??
-            Directory.current.path;
-        final sub = (outDir.isEmpty || outDir == 'Download/Ramen')
-            ? 'Downloads${Platform.pathSeparator}Ramen'
-            : outDir.replaceAll('/', Platform.pathSeparator);
-        targetDir = Directory('$home${Platform.pathSeparator}$sub');
-      }
+      _cancelledDesktopTasks.remove(taskId);
+      final targetDir = _resolveDesktopTargetDir(outDir);
       if (!targetDir.existsSync()) {
         targetDir.createSync(recursive: true);
       }
+
+      final startTime = DateTime.now();
+      String? detectedFilePath;
 
       final outTemplate =
           '${targetDir.path}${Platform.pathSeparator}%(title).200B.%(ext)s';
@@ -640,6 +776,10 @@ class NativeBridgeService {
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) {
+            final parsedPath = _parseDesktopFilePathFromLine(line);
+            if (parsedPath != null) {
+              detectedFilePath = parsedPath;
+            }
             final match = progressRegex.firstMatch(line);
             if (match != null) {
               final progress = double.tryParse(match.group(1) ?? '') ?? 0.0;
@@ -652,6 +792,7 @@ class NativeBridgeService {
                 'progress': progress,
                 'speed': speed,
                 'eta': eta,
+                'filePath': detectedFilePath,
                 'log': line,
               });
             } else {
@@ -664,12 +805,14 @@ class NativeBridgeService {
                   'status': 'DOWNLOADING',
                   'speed': speed,
                   'eta': 'LIVE $elapsed',
+                  'filePath': detectedFilePath,
                   'log': line,
                 });
               } else {
                 _streamController.add({
                   'taskId': taskId,
                   'status': 'DOWNLOADING',
+                  'filePath': detectedFilePath,
                   'log': line,
                 });
               }
@@ -687,13 +830,38 @@ class NativeBridgeService {
 
       process.exitCode.then((exitCode) {
         _activeDesktopProcesses.remove(taskId);
+        if (_cancelledDesktopTasks.remove(taskId)) {
+          _streamController.add({
+            'taskId': taskId,
+            'status': 'CANCELLED',
+            'progress': 0.0,
+            'eta': 'Cancelled',
+            'log': 'Download cancelled by user.',
+          });
+          return;
+        }
         if (exitCode == 0) {
+          File? resolvedFile;
+          if (detectedFilePath != null && File(detectedFilePath!).existsSync()) {
+            resolvedFile = File(detectedFilePath!);
+          } else {
+            resolvedFile = _findMatchingDesktopFile(
+              targetDir,
+              title,
+              '',
+              startedAfter: startTime,
+            );
+          }
           _streamController.add({
             'taskId': taskId,
             'status': 'COMPLETED',
             'progress': 100.0,
             'speed': '0.0 KB/s',
             'eta': 'Done',
+            'filePath': resolvedFile?.path,
+            'fileSize': resolvedFile?.existsSync() == true
+                ? resolvedFile!.lengthSync()
+                : null,
             'log': 'Download completed successfully',
           });
         } else {
@@ -735,8 +903,15 @@ class NativeBridgeService {
       }
     }
 
+    _cancelledDesktopTasks.add(taskId);
     final process = _activeDesktopProcesses.remove(taskId);
     if (process != null) {
+      if (Platform.isWindows) {
+        try {
+          await Process.run('taskkill', ['/F', '/T', '/PID', '${process.pid}']);
+          return true;
+        } catch (_) {}
+      }
       return process.kill();
     }
     return true;
@@ -753,5 +928,6 @@ class NativeBridgeService {
     _activeDesktopSearchProcesses.clear();
     _nativeSubscription?.cancel();
     _streamController.close();
+    _sharedUrlController.close();
   }
 }

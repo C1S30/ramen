@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:provider/provider.dart';
@@ -23,16 +24,25 @@ class RootNavigationView extends StatefulWidget {
 class _RootNavigationViewState extends State<RootNavigationView>
     with WidgetsBindingObserver {
   int _currentIndex = 0;
+  StreamSubscription<String>? _sharedUrlSubscription;
+  String? _lastHandledSharedUrl;
+  DateTime? _lastSharedAt;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    final nativeBridge = getIt<NativeBridgeService>();
+    _sharedUrlSubscription = nativeBridge.sharedUrlStream.listen((url) {
+      unawaited(nativeBridge.getSharedUrl());
+      _handleIncomingSharedUrl(url);
+    });
     _checkSharedUrl();
   }
 
   @override
   void dispose() {
+    _sharedUrlSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -47,13 +57,37 @@ class _RootNavigationViewState extends State<RootNavigationView>
   Future<void> _checkSharedUrl() async {
     final nativeBridge = getIt<NativeBridgeService>();
     final sharedUrl = await nativeBridge.getSharedUrl();
-    if (sharedUrl != null && sharedUrl.isNotEmpty && mounted) {
-      final searchCtrl = context.read<SearchFormatController>();
-      searchCtrl.urlInputController.text = sharedUrl;
-      setState(() {
-        _currentIndex = 0; // Navigate to Home
-      });
-      searchCtrl.inspectUrl(sharedUrl);
+    if (sharedUrl != null && sharedUrl.isNotEmpty) {
+      await _handleIncomingSharedUrl(sharedUrl);
+    }
+  }
+
+  Future<void> _handleIncomingSharedUrl(String rawSharedUrl) async {
+    if (!mounted) return;
+    final cleanUrl = getIt<NativeBridgeService>().extractUrlFromSharedText(
+      rawSharedUrl,
+    );
+    if (cleanUrl.isEmpty) return;
+
+    final now = DateTime.now();
+    if (_lastHandledSharedUrl == cleanUrl &&
+        _lastSharedAt != null &&
+        now.difference(_lastSharedAt!).inSeconds < 2) {
+      return;
+    }
+    _lastHandledSharedUrl = cleanUrl;
+    _lastSharedAt = now;
+
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    final searchCtrl = context.read<SearchFormatController>();
+    searchCtrl.setUrl(cleanUrl);
+    setState(() {
+      _currentIndex = 0;
+    });
+
+    final resource = await searchCtrl.inspectUrl(cleanUrl);
+    if (resource != null && mounted && _currentIndex == 0) {
+      _openPreviewFromBanner(context, searchCtrl);
     }
   }
 

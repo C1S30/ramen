@@ -1,14 +1,19 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/di/injection.dart';
 import '../../models/download_tab.dart';
 import '../../models/download_task.dart';
+import '../../services/native_bridge_service.dart';
+import '../../services/storage_service.dart';
 import '../../services/task_queue_service.dart';
 
 class DownloadController extends ChangeNotifier {
   final TaskQueueService _taskQueue = getIt<TaskQueueService>();
+  final NativeBridgeService _nativeBridge = getIt<NativeBridgeService>();
+  final StorageService _storageService = getIt<StorageService>();
   StreamSubscription? _taskSubscription;
 
   List<DownloadTask> _allTasks = [];
@@ -164,20 +169,73 @@ class DownloadController extends ChangeNotifier {
     await _taskQueue.clearCompleted();
   }
 
-  Future<void> openFile(DownloadTask task) async {
-    if (task.localFilePath != null && task.localFilePath!.isNotEmpty) {
-      await OpenFilex.open(task.localFilePath!);
+  Future<String?> _resolveExistingFilePath(DownloadTask task) async {
+    if (task.localFilePath != null &&
+        task.localFilePath!.trim().isNotEmpty &&
+        File(task.localFilePath!).existsSync()) {
+      return task.localFilePath!.trim();
     }
+
+    final settings = _storageService.getSettings();
+    final effectiveDir = settings.downloadDirectory.trim().isNotEmpty
+        ? settings.downloadDirectory.trim()
+        : 'Download/Ramen';
+
+    final resolved = await _nativeBridge.resolveTaskFile(
+      title: task.title,
+      outDir: effectiveDir,
+      ext: task.extension,
+    );
+
+    if (resolved != null &&
+        resolved.trim().isNotEmpty &&
+        File(resolved).existsSync()) {
+      task.localFilePath = resolved.trim();
+      await _storageService.saveTask(task);
+      notifyListeners();
+      return task.localFilePath;
+    }
+
+    return null;
   }
 
-  Future<void> shareFile(DownloadTask task) async {
-    if (task.localFilePath != null && task.localFilePath!.isNotEmpty) {
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(task.localFilePath!)],
-          subject: 'Shared from Ramen: ${task.title}',
-        ),
-      );
+  Future<String?> openFile(DownloadTask task) async {
+    final path = await _resolveExistingFilePath(task);
+    if (path == null) {
+      return 'File not found on disk. It may have been moved or deleted.';
+    }
+    final res = await OpenFilex.open(path);
+    if (res.type != ResultType.done) {
+      return res.message.isNotEmpty
+          ? res.message
+          : 'Unable to open media file (${res.type.name})';
+    }
+    return null;
+  }
+
+  Future<String?> shareFile(DownloadTask task) async {
+    final path = await _resolveExistingFilePath(task);
+    try {
+      if (path != null) {
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(path)],
+            subject: task.title,
+          ),
+        );
+        return null;
+      } else if (task.url.isNotEmpty) {
+        await SharePlus.instance.share(
+          ShareParams(
+            text: '${task.title}\n${task.url}',
+            subject: task.title,
+          ),
+        );
+        return null;
+      }
+      return 'File not found on disk to share.';
+    } catch (e) {
+      return 'Could not launch share sheet: $e';
     }
   }
 

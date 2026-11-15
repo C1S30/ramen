@@ -787,13 +787,36 @@ class MainActivity : FlutterActivity() {
                 executor.execute {
                     try {
                         if (!getAutoUpdatedMarkerFile().exists()) {
-                            YoutubeDL.getInstance().updateYoutubeDL(
+                            val autoUpdateId = "auto_update_${System.currentTimeMillis()}"
+                            RamenBackgroundService.onUpdateStarted(
                                 applicationContext,
-                                YoutubeDL.UpdateChannel.NIGHTLY
+                                autoUpdateId,
+                                "Auto-updating yt-dlp (NIGHTLY)..."
                             )
-                            isJsRuntimesSupported = null
-                            getOrCreateConfigFile()
-                            getAutoUpdatedMarkerFile().writeText(System.currentTimeMillis().toString())
+                            try {
+                                YoutubeDL.getInstance().updateYoutubeDL(
+                                    applicationContext,
+                                    YoutubeDL.UpdateChannel.NIGHTLY
+                                )
+                                isJsRuntimesSupported = null
+                                getOrCreateConfigFile()
+                                getAutoUpdatedMarkerFile().writeText(System.currentTimeMillis().toString())
+                                val ver = YoutubeDL.getInstance().version(applicationContext) ?: "NIGHTLY"
+                                RamenBackgroundService.onUpdateFinished(
+                                    applicationContext,
+                                    autoUpdateId,
+                                    true,
+                                    "yt-dlp updated to $ver"
+                                )
+                            } catch (updateEx: Exception) {
+                                RamenBackgroundService.onUpdateFinished(
+                                    applicationContext,
+                                    autoUpdateId,
+                                    false,
+                                    extractCleanErrorMessage(updateEx)
+                                )
+                                throw updateEx
+                            }
                         }
                     } catch (e: Exception) {
                         android.util.Log.w(TAG, "Background auto-update yt-dlp notice: ${e.message}")
@@ -936,6 +959,7 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         RamenBackgroundService.isActivityInForeground = true
+        requestNotificationPermissionIfNeeded()
         handleIntent(intent)
         executor.execute {
             try {
@@ -943,6 +967,19 @@ class MainActivity : FlutterActivity() {
             } catch (e: Exception) {
                 android.util.Log.w(TAG, "Background pre-initialization notice: ${e.message}")
             }
+        }
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                val perm = "android.permission.POST_NOTIFICATIONS"
+                if (checkSelfPermission(perm) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(arrayOf(perm), 4100)
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "Notification permission request notice: ${e.message}")
         }
     }
 
@@ -958,14 +995,42 @@ class MainActivity : FlutterActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         handleIntent(intent)
     }
 
+    private fun extractSharedUrlOrText(rawText: String): String {
+        val trimmed = rawText.trim()
+        val urlMatch = Regex("""https?://[^\s"'<>]+""", RegexOption.IGNORE_CASE).find(trimmed)
+        if (urlMatch != null) {
+            return urlMatch.value.trimEnd('.', ',', ')', ']', ';', '!', '?')
+        }
+        return trimmed
+    }
+
     private fun handleIntent(intent: Intent?) {
-        if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
-            val text = intent.getStringExtra(Intent.EXTRA_TEXT)
-            if (!text.isNullOrBlank()) {
-                sharedUrl = text.trim()
+        if (intent == null) return
+        var rawCandidate: String? = null
+        if (intent.action == Intent.ACTION_SEND) {
+            rawCandidate = intent.getStringExtra(Intent.EXTRA_TEXT)
+                ?: intent.getStringExtra(Intent.EXTRA_SUBJECT)
+            if (rawCandidate.isNullOrBlank() && intent.clipData != null && intent.clipData!!.itemCount > 0) {
+                rawCandidate = intent.clipData!!.getItemAt(0)?.coerceToText(this)?.toString()
+            }
+        } else if (intent.action == Intent.ACTION_VIEW) {
+            rawCandidate = intent.dataString
+        }
+
+        if (!rawCandidate.isNullOrBlank()) {
+            val extracted = extractSharedUrlOrText(rawCandidate)
+            if (extracted.isNotBlank()) {
+                sharedUrl = extracted
+                emitEvent(
+                    mapOf(
+                        "type" to "SHARED_URL",
+                        "url" to extracted
+                    )
+                )
             }
         }
     }
@@ -1067,6 +1132,12 @@ class MainActivity : FlutterActivity() {
 
                     "updateEngine" -> {
                         val channelArg = call.argument<String>("channel")?.trim() ?: "nightly"
+                        val updateId = "update_${System.currentTimeMillis()}"
+                        RamenBackgroundService.onUpdateStarted(
+                            applicationContext,
+                            updateId,
+                            "Updating yt-dlp (${channelArg.uppercase()})..."
+                        )
                         executor.execute {
                             try {
                                 ensureEngineInitialized()
@@ -1081,10 +1152,23 @@ class MainActivity : FlutterActivity() {
                                 getAutoUpdatedMarkerFile().writeText(System.currentTimeMillis().toString())
                                 val newVersion = YoutubeDL.getInstance().version(applicationContext)
                                     ?: "Updated (${channelArg.uppercase()})"
-                                safeResult.success("$newVersion (${channelArg.uppercase()})")
+                                val displayVer = "$newVersion (${channelArg.uppercase()})"
+                                RamenBackgroundService.onUpdateFinished(
+                                    applicationContext,
+                                    updateId,
+                                    true,
+                                    "yt-dlp updated to $displayVer"
+                                )
+                                safeResult.success(displayVer)
                             } catch (e: Exception) {
                                 android.util.Log.e(TAG, "Update engine error: ${e.message}", e)
                                 val cleanError = extractCleanErrorMessage(e)
+                                RamenBackgroundService.onUpdateFinished(
+                                    applicationContext,
+                                    updateId,
+                                    false,
+                                    cleanError
+                                )
                                 safeResult.error("UPDATE_ERROR", cleanError, e.message)
                             }
                         }
@@ -1093,11 +1177,29 @@ class MainActivity : FlutterActivity() {
                     "refreshSilentCookies" -> {
                         val targetUrl = call.argument<String>("url")?.trim()?.takeIf { it.isNotEmpty() }
                             ?: "https://www.youtube.com"
+                        val updateId = "cookie_sync_${System.currentTimeMillis()}"
+                        RamenBackgroundService.onUpdateStarted(
+                            applicationContext,
+                            updateId,
+                            "Syncing WebView cookies & User-Agent..."
+                        )
                         executor.execute {
                             try {
                                 val ok = harvestCookiesSilently(targetUrl, 6000L)
+                                RamenBackgroundService.onUpdateFinished(
+                                    applicationContext,
+                                    updateId,
+                                    true,
+                                    if (ok) "WebView cookies & User-Agent synced" else "Cookie sync finished"
+                                )
                                 safeResult.success(ok)
                             } catch (e: Exception) {
+                                RamenBackgroundService.onUpdateFinished(
+                                    applicationContext,
+                                    updateId,
+                                    false,
+                                    extractCleanErrorMessage(e)
+                                )
                                 safeResult.success(false)
                             }
                         }
@@ -1253,13 +1355,17 @@ class MainActivity : FlutterActivity() {
                             } catch (e: Exception) {
                                 if (isCancellationException(e)) {
                                     safeResult.error("SEARCH_CANCELLED", "Search cancelled by user")
+                                    RamenBackgroundService.onSearchFinished(applicationContext, searchId, false, rawUrl, "Cancelled")
                                 } else {
                                     android.util.Log.e(TAG, "getFormats error: ${e.message}", e)
                                     val cleanError = extractCleanErrorMessage(e)
                                     safeResult.error("FORMAT_EXTRACTION_FAILED", cleanError, e.message)
+                                    RamenBackgroundService.onSearchFinished(applicationContext, searchId, false, rawUrl, cleanError)
                                 }
                             } finally {
-                                RamenBackgroundService.onSearchFinished(applicationContext, searchId, succeeded, rawUrl)
+                                if (succeeded) {
+                                    RamenBackgroundService.onSearchFinished(applicationContext, searchId, true, rawUrl)
+                                }
                             }
                         }
                     }
@@ -1324,6 +1430,29 @@ class MainActivity : FlutterActivity() {
                         }
                     }
 
+                    "resolveTaskFile" -> {
+                        val title = call.argument<String>("title")?.trim() ?: ""
+                        val outDir = call.argument<String>("outDir")?.trim() ?: ""
+                        val ext = call.argument<String>("ext")?.trim() ?: ""
+                        executor.execute {
+                            try {
+                                val targetDir = resolveTargetDirectory(outDir)
+                                val safeBaseTitle = title.replace(Regex("""[\\/:*?"<>|]"""), "_").take(120)
+                                val matched = findMatchingOutputFile(
+                                    targetDir = targetDir,
+                                    rawTitle = title,
+                                    safeBaseTitle = safeBaseTitle,
+                                    preferredExt = ext,
+                                    downloadStartTimeMs = 0L,
+                                    beforeSnapshot = emptySet()
+                                )
+                                safeResult.success(matched?.absolutePath)
+                            } catch (e: Exception) {
+                                safeResult.success(null)
+                            }
+                        }
+                    }
+
                     "startDownload" -> {
                         val taskId = call.argument<String>("taskId")?.trim() ?: ""
                         val rawUrl = call.argument<String>("url")?.trim() ?: ""
@@ -1345,28 +1474,17 @@ class MainActivity : FlutterActivity() {
                             try {
                                 ensureEngineInitialized()
                                 val normalizedUrl = normalizeMediaUrl(rawUrl)
-                                // If Silent WebView already resolved a direct CDN stream URL for this Instagram post, use it directly
                                 val effectiveDownloadUrl = resolvedDirectMediaUrls[rawUrl]
                                     ?: resolvedDirectMediaUrls[normalizedUrl]
                                     ?: normalizedUrl
                                 val isUsingDirectCdn = effectiveDownloadUrl != normalizedUrl
 
-                                val targetDir = when {
-                                    outDir.isNotEmpty() && File(outDir).isAbsolute -> File(outDir)
-                                    outDir.isNotEmpty() && (outDir == "Download/Ramen" || outDir.startsWith("Download/")) -> {
-                                        val sub = if (outDir == "Download/Ramen") "Ramen" else outDir.removePrefix("Download/")
-                                        File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), sub)
-                                    }
-                                    outDir.isNotEmpty() -> File(android.os.Environment.getExternalStorageDirectory(), outDir)
-                                    else -> File(
-                                        android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
-                                        "Ramen"
-                                    )
-                                }.apply {
-                                    if (!exists()) {
-                                        mkdirs()
-                                    }
-                                }
+                                val targetDir = resolveTargetDirectory(outDir)
+                                val downloadStartTimeMs = System.currentTimeMillis() - 2000L
+                                val beforeSnapshot = targetDir.listFiles()
+                                    ?.filter { it.isFile }
+                                    ?.map { "${it.name}:${it.length()}:${it.lastModified()}" }
+                                    ?.toSet() ?: emptySet()
 
                                 val request = YoutubeDLRequest(effectiveDownloadUrl)
                                 val safeBaseTitle = title.replace(Regex("""[\\/:*?"<>|]"""), "_").take(120)
@@ -1385,7 +1503,6 @@ class MainActivity : FlutterActivity() {
                                     request.addOption("--config-locations", configFile.absolutePath)
                                 }
                                 val filteredArgs = if (isUsingDirectCdn) {
-                                    // Strip format ID 'ig_direct_mp4' when downloading direct CDN MP4 URL
                                     val cleaned = mutableListOf<String>()
                                     var skip = false
                                     for (a in args) {
@@ -1408,6 +1525,7 @@ class MainActivity : FlutterActivity() {
 
                                 val speedRegex = Regex("""at\s+([0-9.]+\s*[kKmMgG]?[iI]?[bB]/s)""")
                                 val liveElapsedRegex = Regex("""\(([0-9:]+)\)""")
+                                var detectedFilePath: String? = null
 
                                 var downloadException: Exception? = null
                                 try {
@@ -1416,6 +1534,9 @@ class MainActivity : FlutterActivity() {
                                             return@execute
                                         }
                                         val rawLine = line ?: ""
+                                        parseFilePathFromYtDlpLine(rawLine)?.let { parsed ->
+                                            detectedFilePath = parsed
+                                        }
                                         val speedMatch = speedRegex.find(rawLine)
                                         val speed = speedMatch?.groupValues?.getOrNull(1) ?: ""
                                         val safeProgress = if (progress < 0f) 0.0 else progress.toDouble()
@@ -1442,6 +1563,7 @@ class MainActivity : FlutterActivity() {
                                                 "progress" to safeProgress,
                                                 "speed" to speed,
                                                 "eta" to etaValue,
+                                                "filePath" to detectedFilePath,
                                                 "log" to rawLine
                                             )
                                         )
@@ -1533,21 +1655,26 @@ class MainActivity : FlutterActivity() {
                                             YoutubeDL.getInstance().execute(fallbackRequest, taskId) { progress, etaInSeconds, line ->
                                                 if (cancelledTasks.contains(taskId)) return@execute
                                                 val rawLine = line ?: ""
+                                                parseFilePathFromYtDlpLine(rawLine)?.let { parsed ->
+                                                    detectedFilePath = parsed
+                                                }
                                                 val speedMatch = speedRegex.find(rawLine)
                                                 val speed = speedMatch?.groupValues?.getOrNull(1) ?: ""
+                                                val safeProgress = if (progress < 0f) 0.0 else progress.toDouble()
                                                 RamenBackgroundService.onDownloadProgress(
                                                     applicationContext,
                                                     taskId,
-                                                    progress.toDouble(),
+                                                    safeProgress,
                                                     speed
                                                 )
                                                 emitEvent(
                                                     mapOf(
                                                         "taskId" to taskId,
                                                         "status" to "DOWNLOADING",
-                                                        "progress" to progress.toDouble(),
+                                                        "progress" to safeProgress,
                                                         "speed" to speed,
                                                         "eta" to etaInSeconds,
+                                                        "filePath" to detectedFilePath,
                                                         "log" to rawLine
                                                     )
                                                 )
@@ -1577,6 +1704,18 @@ class MainActivity : FlutterActivity() {
                                     return@execute
                                 }
 
+                                val resolvedFile = detectedFilePath
+                                    ?.let { File(it) }
+                                    ?.takeIf { it.exists() && it.isFile && !isTemporaryDownloadFile(it) }
+                                    ?: findMatchingOutputFile(
+                                        targetDir = targetDir,
+                                        rawTitle = title,
+                                        safeBaseTitle = safeBaseTitle,
+                                        preferredExt = "",
+                                        downloadStartTimeMs = downloadStartTimeMs,
+                                        beforeSnapshot = beforeSnapshot
+                                    )
+
                                 activeTasks.remove(taskId)
                                 RamenBackgroundService.onDownloadFinished(applicationContext, taskId, true)
                                 emitEvent(
@@ -1586,11 +1725,13 @@ class MainActivity : FlutterActivity() {
                                         "progress" to 100.0,
                                         "speed" to "0.0 KB/s",
                                         "eta" to 0,
+                                        "filePath" to resolvedFile?.absolutePath,
+                                        "fileSize" to resolvedFile?.length(),
                                         "log" to "Download finished successfully."
                                     )
                                 )
 
-                                // Seal method: Index downloaded file(s) into Android system MediaStore
+                                // Index downloaded file(s) into Android system MediaStore
                                 try {
                                     val recentFiles = targetDir.listFiles()?.filter {
                                         it.isFile && (System.currentTimeMillis() - it.lastModified()) < 300000
@@ -1667,6 +1808,133 @@ class MainActivity : FlutterActivity() {
                     else -> safeResult.notImplemented()
                 }
             }
+    }
+
+    private fun resolveTargetDirectory(outDir: String): File {
+        return when {
+            outDir.isNotEmpty() && File(outDir).isAbsolute -> File(outDir)
+            outDir.isNotEmpty() && (outDir == "Download/Ramen" || outDir.startsWith("Download/")) -> {
+                val sub = if (outDir == "Download/Ramen") "Ramen" else outDir.removePrefix("Download/")
+                File(
+                    android.os.Environment.getExternalStoragePublicDirectory(
+                        android.os.Environment.DIRECTORY_DOWNLOADS
+                    ),
+                    sub
+                )
+            }
+            outDir.isNotEmpty() -> File(android.os.Environment.getExternalStorageDirectory(), outDir)
+            else -> File(
+                android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOWNLOADS
+                ),
+                "Ramen"
+            )
+        }.apply {
+            if (!exists()) {
+                mkdirs()
+            }
+        }
+    }
+
+    private fun isTemporaryDownloadFile(file: File): Boolean {
+        val lower = file.name.lowercase()
+        return lower.endsWith(".part") ||
+            lower.endsWith(".ytdl") ||
+            lower.endsWith(".temp") ||
+            lower.endsWith(".aria2")
+    }
+
+    private fun parseFilePathFromYtDlpLine(line: String): String? {
+        val trimmed = line.trim()
+        if (trimmed.isEmpty()) return null
+
+        val patterns = listOf(
+            Regex("""\[Merger\] Merging formats into "(.+?)""""),
+            Regex("""\[VideoRemuxer\] Remuxing video from \S+ to "(.+?)""""),
+            Regex("""\[FixupM3u8\] Fixing MPEG-TS in MP4 container of "(.+?)""""),
+            Regex("""\[ExtractAudio\] Destination:\s+(.+)$"""),
+            Regex("""\[download\] Destination:\s+(.+)$"""),
+            Regex("""\[download\]\s+(.+?)\s+has already been downloaded""")
+        )
+
+        for (regex in patterns) {
+            val match = regex.find(trimmed)
+            if (match != null) {
+                val path = match.groupValues[1].trim().trim('"')
+                if (path.isNotEmpty() && !path.contains("/ytdlp_temp/")) {
+                    return path
+                }
+            }
+        }
+        return null
+    }
+
+    private fun findMatchingOutputFile(
+        targetDir: File,
+        rawTitle: String,
+        safeBaseTitle: String,
+        preferredExt: String,
+        downloadStartTimeMs: Long,
+        beforeSnapshot: Set<String>
+    ): File? {
+        val files = targetDir.listFiles()?.filter {
+            it.isFile && !isTemporaryDownloadFile(it) && it.length() > 0L
+        } ?: return null
+
+        if (files.isEmpty()) return null
+
+        // 1. If we have a snapshot from before the download started, look for newly created/modified files first
+        if (downloadStartTimeMs > 0L) {
+            val newlyModified = files.filter { f ->
+                val sig = "${f.name}:${f.length()}:${f.lastModified()}"
+                !beforeSnapshot.contains(sig) && f.lastModified() >= downloadStartTimeMs
+            }
+            if (newlyModified.isNotEmpty()) {
+                return newlyModified.maxByOrNull { it.lastModified() }
+            }
+        }
+
+        // 2. Match by title prefix or normalized alphanumeric tokens
+        val normalizedQuery = safeBaseTitle.lowercase().replace(Regex("""[^a-z0-9]"""), "")
+        val rawNorm = rawTitle.lowercase().replace(Regex("""[^a-z0-9]"""), "")
+        val cleanExt = preferredExt.lowercase().removePrefix(".")
+
+        val scored = files.mapNotNull { file ->
+            val nameWithoutExt = file.nameWithoutExtension
+            val normFile = nameWithoutExt.lowercase().replace(Regex("""[^a-z0-9]"""), "")
+            var score = 0
+            if (nameWithoutExt.equals(rawTitle, ignoreCase = true) ||
+                nameWithoutExt.equals(safeBaseTitle, ignoreCase = true)
+            ) {
+                score += 100
+            } else if (normalizedQuery.length >= 4 &&
+                (normFile.contains(normalizedQuery.take(24)) || normalizedQuery.contains(normFile.take(24)))
+            ) {
+                score += 60
+            } else if (rawNorm.length >= 4 &&
+                (normFile.contains(rawNorm.take(24)) || rawNorm.contains(normFile.take(24)))
+            ) {
+                score += 50
+            }
+            if (score > 0 && cleanExt.isNotEmpty() && file.extension.equals(cleanExt, ignoreCase = true)) {
+                score += 20
+            }
+            if (score > 0) Pair(file, score) else null
+        }
+
+        if (scored.isNotEmpty()) {
+            return scored.maxWithOrNull(
+                compareBy<Pair<File, Int>> { it.second }.thenBy { it.first.lastModified() }
+            )?.first
+        }
+
+        // 3. Fallback during active download completion: return most recently modified file if within last 2 minutes
+        if (downloadStartTimeMs > 0L) {
+            return files.filter { it.lastModified() >= downloadStartTimeMs - 60000L }
+                .maxByOrNull { it.lastModified() }
+        }
+
+        return null
     }
 
     private fun applyOptions(request: YoutubeDLRequest, args: List<String>) {
